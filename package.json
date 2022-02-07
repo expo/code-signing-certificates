@@ -9,7 +9,7 @@
     "clean": "rm -rf build coverage coverage-integration",
     "lint": "eslint src",
     "lint-fix": "eslint src --fix",
-    "test": "jest"
+    "test": "jest --rootDir . --config jest.config.js"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - uses: actions/setup-node@v1
+      with:
+        node-version: 12.x
+    - name: Cache Node.js modules
+      uses: actions/cache@v1
+      with:
+        path: ${{ github.workspace }}/node_modules
+        key: ${{ runner.OS }}-node_modules-${{ hashFiles('yarn.lock') }}
+    - run: yarn --frozen-lockfile
+    - run: yarn lint -- --max-warnings=0
+    - run: yarn test -- --coverage
+    - uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage/clover.xml
+        flags: unittest
+        fail_ci_if_error: true
+    - uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage-integration/clover.xml
+        flags: integration
+        fail_ci_if_error: true

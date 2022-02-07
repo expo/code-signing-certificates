@@ -163,16 +163,14 @@ export function generateSelfSignedCodeSigningCertificate({
 }
 
 function arePublicKeysEqual(key1: PKI.rsa.PublicKey, key2: PKI.rsa.PublicKey): boolean {
-  // typedef for BigInteger doesn't contain equals method
-  return (key1.n as any).equals(key2.n) && (key1.e as any).equals(key2.e);
+  return key1.n.equals(key2.n) && key1.e.equals(key2.e);
 }
 
 function doPrivateAndPublicKeysMatch(
   privateKey: PKI.rsa.PrivateKey,
   publicKey: PKI.rsa.PublicKey
 ): boolean {
-  // typedef for BigInteger doesn't contain equals method
-  return (publicKey.n as any).equals(privateKey.n) && (publicKey.e as any).equals(privateKey.e);
+  return publicKey.n.equals(privateKey.n) && publicKey.e.equals(privateKey.e);
 }
 
 /**

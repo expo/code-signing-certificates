@@ -1,4 +1,6 @@
+import { promises as fs } from 'fs';
 import { md } from 'node-forge';
+import path from 'path';
 
 import {
   convertCertificatePEMToCertificate,
@@ -10,7 +12,7 @@ import {
   generateSelfSignedCodeSigningCertificate,
   signStringRSASHA256AndVerify,
   validateSelfSignedCertificate,
-} from '..';
+} from '../main';
 
 describe(generateKeyPair, () => {
   it('generates a key pair', () => {
@@ -240,62 +242,14 @@ describe(validateSelfSignedCertificate, () => {
 });
 
 describe(signStringRSASHA256AndVerify, () => {
-  const testPrivateKey = `
------BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEAp1ILmaSl1pUVFgt/nLtzoaGuBW4OPRFN5uU2rYPow3uy4NfU
-LKiir4AWxGETcm4gFIOG3RIbDJys6TAJJLnFEFnzpV+qaNeqaMqnXm4OBspx/WS2
-rSSGIwr7raKy4yrpPYJB1A2D5fZ6oFoWROyjbHJvPddu0PqbbEWSM3PzdZYOKfF1
-3ofzFOPlsTnlo12QWgksxrcTwgeX7cjHsXaUc+I8U9DRR+9SgKhejWdFNPGcMkEc
-5BIXwtkTau+8+DwQzXz775Wlhf0eJwfnNQeleblbLQIp8i+RmfIjPSt8W/iTSN64
-iBROpOvnOeJ9gKX922QDZoqWz9o4RTNCPfyYBQIDAQABAoIBAEKMXVTEqbkJHpPg
-Cud5nuoAdkhul3cudL+LFw44UtG9V04aSadhgyMuXN/KhIOUzWmbTn6K/vsrLZKp
-qllTEdAJFuEFha+hZ4O6ZosmVqnYxzGzZvzCdB9n9OYAugmkPZRbRHdk0LscJ3Wz
-nvvW6sDtWtVL5CV2J28O1LFmQsTXPtEE5aQ5KX3Ix0OW1HBdEMOXRDFFDXhf7AKz
-nlvl3WRsXLyHYBfKs0pQHy8Gi+zl2OgKZDc9elMdU0Mx0jTJUUDtPSgNAsmdKO26
-qmkhbGd/kM1+6h+zngY3m48yD9elDxR3WUIYE2x5tT9fv3T6/xn1QfMz/gtToplx
-qY1DegECgYEA3bGUq91QMIH5rxrr2BBQpniXOTtOPAdvRcRh0/EsYhHcuL+uJEtG
-W9o9MqrREhXMMeD9Y8RorL+qefJjGq+GRwnPHlDjr6NkGTZfDKUn4IFH1xMbspET
-Nen5BsY5inUrQ/LSg1+HiVsSDyIJzGVcGMTOh9qC53M/zIGdiEwHgUECgYEAwTZ3
-AVieag5ETYahGdverxCRKlJ0MFJq3VKEdt6EcZHfeY1gmi17vGZ39q6djmfTT9Il
-QVP4/mxU2/mg/UgRC+rwiAZs3qlhOrtkrGd9qPOIeZ8PJkoNlvhM2WC2rGjTfXsb
-2IKtDEVXetwGgm3SXqpjycI5Xj6/9VlHAmCc4cUCgYAv9dT2AWDxvYyopyhSi+UG
-vpvok73vGqSl8UBAu7IgXUDk7wLbczV7dZE7vtyQDwsn10a6KKmEhcp5q0hpY4On
-JqYaJuG7A5wKIEsbzzb7SLyj+MxLKzt+tGldX9De9U4w2v1T0nzd6EfV4kVAZMUx
-zpHnrgwXykUJFxlffSM6gQKBgQCMxKXHsU0Zb/OLmD7fnDWNzsA02YYVfralMW2Z
-PV25cNIkuUBclC7GgNF+RJI+Ip7uVOkXw5pxo3PgIOuOHWduC2nbcPL49ucD52vd
-wDjpUyVnlt9uwh1MlPNInRH6YxVTItKS2AJEInEt7ghAFstidTnm0T8Czy0EEFuP
-+9vREQKBgQDIQxJ5oPIOEibJqn34z6qm5EmUyme/evvHxtQTaVuQi5CrzD5+qw1C
-jOTHmlJQQsb8b1g9wk7n+JbqWYhkRiAE6dwqvp/zDz1VfR90WbAPYQ8ZiXZ07D2P
-8P6ZXR3ZyDchuT6oUBXz5WtHUWOzXRJgPbXnFhrkIU8PkZYiPs/4Bw==
------END RSA PRIVATE KEY-----
-`;
-
-  const testCertificate = `
------BEGIN CERTIFICATE-----
-MIICyzCCAbOgAwIBAgIJWVXVdVgS9u+DMA0GCSqGSIb3DQEBCwUAMA8xDTALBgNV
-BAMTBFRlc3QwHhcNMjIwMjA0MDEzODU2WhcNMjMwMjA0MDEzODU2WjAPMQ0wCwYD
-VQQDEwRUZXN0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp1ILmaSl
-1pUVFgt/nLtzoaGuBW4OPRFN5uU2rYPow3uy4NfULKiir4AWxGETcm4gFIOG3RIb
-DJys6TAJJLnFEFnzpV+qaNeqaMqnXm4OBspx/WS2rSSGIwr7raKy4yrpPYJB1A2D
-5fZ6oFoWROyjbHJvPddu0PqbbEWSM3PzdZYOKfF13ofzFOPlsTnlo12QWgksxrcT
-wgeX7cjHsXaUc+I8U9DRR+9SgKhejWdFNPGcMkEc5BIXwtkTau+8+DwQzXz775Wl
-hf0eJwfnNQeleblbLQIp8i+RmfIjPSt8W/iTSN64iBROpOvnOeJ9gKX922QDZoqW
-z9o4RTNCPfyYBQIDAQABoyowKDAOBgNVHQ8BAf8EBAMCB4AwFgYDVR0lAQH/BAww
-CgYIKwYBBQUHAwMwDQYJKoZIhvcNAQELBQADggEBAHTyG2f/CReXVrS3zZjpgnje
-Vn2/XYevnaHNWYIxjlUVGaASE/k6qWkM832f0gaZwJYXsll2YxJa5Jcdqa1yq8QA
-Ay5YBq8Vv6K6iGTeZ5wTQc3xNys7zcS95eNq7yhDDjbLDbSDdZ8T/1hZqiha2DG5
-itLGfBH+HywW2G9njLgIzNcmKx3d76y3jlVXqug1/AVFK9in+r/0t0TYlk+opqZb
-H7cjJSefHusnq2vvvR6gbkZzyzSYP5FMlj/RjRCSJ+VHNwCn3fS+KDlJgVOk0Cxc
-7n52UGazeFwH3mem89DN+Bhw/uyU0IcIaDLykb6PsTPy2tjHsLpK5kpvfrp2m0o=
------END CERTIFICATE-----
-`;
-
-  it('signs and verifies', () => {
-    const privateKey = convertPrivateKeyPEMToPrivateKey(testPrivateKey);
-    const certificate = convertCertificatePEMToCertificate(testCertificate);
+  it('signs and verifies', async () => {
+    const [privateKeyPEM, certificatePEM] = await Promise.all([
+      fs.readFile(path.join(__dirname, './fixtures/test-private-key.pem'), 'utf8'),
+      fs.readFile(path.join(__dirname, './fixtures/test-certificate.pem'), 'utf8'),
+    ]);
+    const privateKey = convertPrivateKeyPEMToPrivateKey(privateKeyPEM);
+    const certificate = convertCertificatePEMToCertificate(certificatePEM);
     const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello');
-    expect(signature).toEqual(
-      'aPDeSpsFhQXJ1+7RjLW1kASwFoXFJSC4oehm24KaDQG4dHKEz7tVWhrVknGFTRSM54tv4sfXh2p7/6hs+XoMrdlwplpPTIo7PyWmRsE7Md36bkhTGDz/vUXD42uzcLXFNEzcV7TjjN63uF82ytrDUR7Hvc3rj16//oX5LdasiSyDeNKpiaOBZeANtPHgJ1opOVrTGcKJb62LRwTl+c5YyPUjd48wAUGS/PrB2ucbBchxWJ1KfL8kEjD41sCZCWWxbHRYiKPely4z8kaEoMwAGgPb6QUlPgg6XilAcHxT1xPlq/VafVnkxjih5czAfRlTn8bEAtLzwep77tLJs5hSZw=='
-    );
+    expect(signature).toMatchSnapshot();
   });
 });

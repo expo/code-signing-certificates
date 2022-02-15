@@ -11,14 +11,52 @@
   "overrides": [
     {
       "files": [
-        "*.ts",
-        "*.tsx",
-        "*.d.ts"
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.d.ts"
       ],
       "parserOptions": {
         "project": "./tsconfig.json"
       },
       "rules": {
+        "@typescript-eslint/explicit-function-return-type": [
+          "warn",
+          {
+            "allowExpressions": true
+          }
+        ],
+        "@typescript-eslint/naming-convention": [
+          "warn",
+          {
+            "selector": "typeLike",
+            "format": [
+              "PascalCase"
+            ]
+          },
+          {
+            "selector": "enumMember",
+            "format": [
+              "UPPER_CASE"
+            ]
+          }
+        ],
+        "no-dupe-class-members": "off",
+        "@typescript-eslint/no-dupe-class-members": [
+          "error"
+        ]
+      }
+    },
+    {
+      "files": [
+        "scripts/**/*.ts",
+        "scripts/**/*.tsx",
+        "scripts/**/*.d.ts"
+      ],
+      "parserOptions": {
+        "project": "./tsconfig.scripts.json"
+      },
+      "rules": {
+        "no-console": "off",
         "@typescript-eslint/explicit-function-return-type": [
           "warn",
           {

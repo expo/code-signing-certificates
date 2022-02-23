@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import fs from 'fs/promises';
 import { pki as PKI, util, random, md, pki } from 'node-forge';
 
@@ -90,10 +92,6 @@ async function generateExpoRootCertificateAsync(): Promise<KeysAndCertificate> {
       shortName: 'OU',
       value: 'Engineering',
     },
-    {
-      name: 'emailAddress',
-      value: 'secure@expo.dev',
-    },
   ];
 
   // root certificate is self-signed
@@ -104,7 +102,6 @@ async function generateExpoRootCertificateAsync(): Promise<KeysAndCertificate> {
     {
       name: 'basicConstraints',
       cA: true,
-      pathLenConstraint: 1, // should be at most 1 intermediate certificate (expo go intermediate CA + development certs issued by that intermediate CA)
     },
     {
       name: 'keyUsage',
@@ -165,10 +162,6 @@ async function generateExpoGoIntermediateCertificate(
     {
       shortName: 'OU',
       value: 'Engineering',
-    },
-    {
-      name: 'emailAddress',
-      value: 'secure@expo.dev',
     },
   ];
 
@@ -289,3 +282,5 @@ async function generateTestDevelopmentCertificate(
     certificate,
   };
 }
+
+run();

@@ -11,6 +11,7 @@
     "lint-fix": "eslint src --fix",
     "test": "jest --rootDir . --config jest.config.js",
     "generate-example-certificates": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateExampleCertificates.ts",
+    "generate-example-self-signed": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateExampleSelfSignedCertificate.ts",
     "oidgen": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/oidgen/oidgen.ts",
     "sign-manifest-for-testing": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/signManifestForTesting.ts"
   },

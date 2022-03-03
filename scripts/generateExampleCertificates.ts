@@ -3,7 +3,7 @@
 import fs from 'fs/promises';
 import { pki as PKI, util, random, md, pki } from 'node-forge';
 
-import { generateKeyPair } from '../src/main';
+import { generateCSR, generateDevelopmentCertificateFromCSR, generateKeyPair } from '../src/main';
 import { toPositiveHex } from '../src/utils';
 
 type KeysAndCertificate = {
@@ -20,10 +20,6 @@ type KeysAndCSR = {
 
 const testAppId = '285dc9ca-a25d-4f60-93be-36dc312266d7';
 const testScopeKey = '@test/app';
-
-// generated with oidgen script. in the microsoft OID space. could apply for Expo space but would take time: https://pen.iana.org/pen/PenApplication.page
-const expoProjectInformationOID =
-  '1.2.840.113556.1.8000.2554.43437.254.128.102.157.7894389.20439.2.1';
 
 export async function run(): Promise<void> {
   const root = await generateExpoRootCertificateAsync();
@@ -207,22 +203,10 @@ async function generateExpoGoIntermediateCertificate(
 }
 
 async function generateDevelopmentCSR(projectId: string, scopeKey: string): Promise<KeysAndCSR> {
-  const { privateKey, publicKey } = generateKeyPair();
-
-  const csr = pki.createCertificationRequest();
-  csr.publicKey = publicKey;
-
-  const attrs = [
-    {
-      name: 'commonName',
-      value: `Expo Go Development Certificate ${projectId}`,
-    },
-  ];
-  csr.setSubject(attrs);
-
+  const keyPair = generateKeyPair();
+  const csr = generateCSR(keyPair);
   return {
-    publicKey,
-    privateKey,
+    ...keyPair,
     csr,
   };
 }
@@ -231,50 +215,13 @@ async function generateTestDevelopmentCertificate(
   csrKeysAndCSR: KeysAndCSR,
   intermediate: KeysAndCertificate
 ): Promise<KeysAndCertificate> {
-  // TODO: check if csr is valid
-
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = csrKeysAndCSR.csr.publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
-  // 30 day validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setDate(certificate.validity.notBefore.getDate() + 30);
-
-  // only take the subject (and public key) from CSR
-  certificate.setSubject(csrKeysAndCSR.csr.subject.attributes);
-
-  certificate.setIssuer(intermediate.certificate.subject.attributes);
-
-  certificate.setExtensions([
-    {
-      name: 'keyUsage',
-      critical: true,
-      keyCertSign: false,
-      digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
-    },
-    {
-      name: 'extKeyUsage',
-      critical: true,
-      serverAuth: false,
-      clientAuth: false,
-      codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
-    },
-    {
-      name: 'expoProjectInformation',
-      id: expoProjectInformationOID,
-      // critical: true, // can't be critical since openssl verify doesn't know about this extension
-      value: `${testAppId},${testScopeKey}`,
-    },
-  ]);
-
-  certificate.sign(intermediate.privateKey, md.sha256.create());
+  const certificate = generateDevelopmentCertificateFromCSR(
+    intermediate.privateKey,
+    intermediate.certificate,
+    csrKeysAndCSR.csr,
+    testAppId,
+    testScopeKey
+  );
 
   return {
     privateKey: csrKeysAndCSR.privateKey,

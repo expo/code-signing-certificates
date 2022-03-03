@@ -5,9 +5,14 @@ import path from 'path';
 import {
   convertCertificatePEMToCertificate,
   convertCertificateToCertificatePEM,
+  convertCSRPEMToCSR,
+  convertCSRToCSRPEM,
   convertKeyPairPEMToKeyPair,
   convertKeyPairToPEM,
   convertPrivateKeyPEMToPrivateKey,
+  expoProjectInformationOID,
+  generateCSR,
+  generateDevelopmentCertificateFromCSR,
   generateKeyPair,
   generateSelfSignedCodeSigningCertificate,
   signStringRSASHA256AndVerify,
@@ -88,7 +93,7 @@ describe(generateSelfSignedCodeSigningCertificate, () => {
       commonName: 'Test',
     });
     // check self-signed
-    expect(certificate.issuer.hash).toEqual(certificate.subject.hash);
+    expect(certificate.verify(certificate)).toBe(true);
     // check extensions
     expect(certificate.getExtension('keyUsage')).toMatchObject({
       critical: true,
@@ -251,5 +256,59 @@ describe(signStringRSASHA256AndVerify, () => {
     const certificate = convertCertificatePEMToCertificate(certificatePEM);
     const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello');
     expect(signature).toMatchSnapshot();
+  });
+});
+
+describe('CSR generation and certificate generation from CA + CSR', () => {
+  it('generates a development certificate', async () => {
+    const [issuerPrivateKeyPEM, issuerCertificatePEM] = await Promise.all([
+      fs.readFile(path.join(__dirname, './fixtures/test-private-key.pem'), 'utf8'),
+      fs.readFile(path.join(__dirname, './fixtures/test-certificate.pem'), 'utf8'),
+    ]);
+    const issuerPrivateKey = convertPrivateKeyPEMToPrivateKey(issuerPrivateKeyPEM);
+    const issuerCertificate = convertCertificatePEMToCertificate(issuerCertificatePEM);
+
+    const keyPair = generateKeyPair();
+    const csr1 = generateCSR(keyPair);
+
+    const csrPEM = convertCSRToCSRPEM(csr1);
+    const csr = convertCSRPEMToCSR(csrPEM);
+
+    const certificate = generateDevelopmentCertificateFromCSR(
+      issuerPrivateKey,
+      issuerCertificate,
+      csr,
+      'testApp',
+      'testScopeKey'
+    );
+
+    // check signed by issuer
+    expect(issuerCertificate.verify(certificate)).toBe(true);
+    // check extensions
+    expect(certificate.getExtension('keyUsage')).toMatchObject({
+      critical: true,
+      dataEncipherment: false,
+      digitalSignature: true,
+      id: '2.5.29.15',
+      keyCertSign: false,
+      keyEncipherment: false,
+      name: 'keyUsage',
+      nonRepudiation: false,
+    });
+    expect(certificate.getExtension('extKeyUsage')).toMatchObject({
+      clientAuth: false,
+      codeSigning: true,
+      critical: true,
+      emailProtection: false,
+      id: '2.5.29.37',
+      name: 'extKeyUsage',
+      serverAuth: false,
+      timeStamping: false,
+    });
+    expect(certificate.getExtension('expoProjectInformation')).toMatchObject({
+      name: 'expoProjectInformation',
+      id: expoProjectInformationOID,
+      value: 'testApp,testScopeKey',
+    });
   });
 });

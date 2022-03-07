@@ -28,7 +28,7 @@ export async function run(): Promise<void> {
   const expoGo = await generateExpoGoIntermediateCertificate(root);
   await exportCertificateAndKeysAsync(expoGo, 'expo-go');
 
-  const developmentCSR = await generateDevelopmentCSR(testAppId, testScopeKey);
+  const developmentCSR = await generateDevelopmentCSR(testAppId);
 
   const testDevelopmentCert = await generateTestDevelopmentCertificate(developmentCSR, expoGo);
   await exportCertificateAndKeysAsync(testDevelopmentCert, 'development');
@@ -202,9 +202,9 @@ async function generateExpoGoIntermediateCertificate(
   };
 }
 
-async function generateDevelopmentCSR(projectId: string, scopeKey: string): Promise<KeysAndCSR> {
+async function generateDevelopmentCSR(projectId: string): Promise<KeysAndCSR> {
   const keyPair = generateKeyPair();
-  const csr = generateCSR(keyPair);
+  const csr = generateCSR(keyPair, `Expo Go Development Certificate ${projectId}`);
   return {
     ...keyPair,
     csr,

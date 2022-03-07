@@ -272,11 +272,19 @@ export function signStringRSASHA256AndVerify(
 /**
  * Generate a self-signed CSR for a given key pair. Most commonly used with {@link generateDevelopmentCertificateFromCSR}.
  * @param keyPair RSA key pair
+ * @param commonName commonName attribute of the subject of the resulting certificate (human readable name of the certificate)
  * @returns CSR
  */
-export function generateCSR(keyPair: PKI.rsa.KeyPair): PKI.CertificateRequest {
+export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.CertificateRequest {
   const csr = PKI.createCertificationRequest();
   csr.publicKey = keyPair.publicKey;
+  const attrs = [
+    {
+      name: 'commonName',
+      value: commonName,
+    },
+  ];
+  csr.setSubject(attrs);
   csr.sign(keyPair.privateKey, md.sha256.create());
   return csr;
 }
@@ -286,7 +294,7 @@ export function generateCSR(keyPair: PKI.rsa.KeyPair): PKI.CertificateRequest {
  * appId and scopeKey (fields verified by the client during certificate validation).
  *
  * Note that this function assumes the issuer is trusted, and that the user that created the CSR and issued
- * the request has permission to sign manifests for the appId and scopeKey. This constraint shold be
+ * the request has permission to sign manifests for the appId and scopeKey. This constraint must be
  * verified on the server before calling this method.
  *
  * @param issuerPrivateKey private key to sign the resulting certificate with
@@ -294,7 +302,6 @@ export function generateCSR(keyPair: PKI.rsa.KeyPair): PKI.CertificateRequest {
  * @param csr certificate signing request containing the user's public key
  * @param appId app ID (UUID) of the app that the resulting certificate will sign the development manifest for
  * @param scopeKey scope key of the app that the resuting certificate will sign the development manifest for
- * @param commonName commonName attribute of the subject of the resulting certificate (human readable name of the certificate)
  * @returns certificate to use to sign development manifests
  */
 export function generateDevelopmentCertificateFromCSR(

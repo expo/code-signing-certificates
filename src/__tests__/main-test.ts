@@ -269,7 +269,7 @@ describe('CSR generation and certificate generation from CA + CSR', () => {
     const issuerCertificate = convertCertificatePEMToCertificate(issuerCertificatePEM);
 
     const keyPair = generateKeyPair();
-    const csr1 = generateCSR(keyPair);
+    const csr1 = generateCSR(keyPair, 'Test common name');
 
     const csrPEM = convertCSRToCSRPEM(csr1);
     const csr = convertCSRPEMToCSR(csrPEM);
@@ -284,6 +284,8 @@ describe('CSR generation and certificate generation from CA + CSR', () => {
 
     // check signed by issuer
     expect(issuerCertificate.verify(certificate)).toBe(true);
+    // check subject attributes are transferred
+    expect(certificate.subject.getField('CN').value).toEqual('Test common name');
     // check extensions
     expect(certificate.getExtension('keyUsage')).toMatchObject({
       critical: true,

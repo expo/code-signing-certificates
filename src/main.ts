@@ -3,6 +3,10 @@ import { md, pki as PKI, random, util } from 'node-forge';
 
 import { toPositiveHex } from './utils';
 
+// generated with oidgen script. in the microsoft OID space. could apply for Expo space but would take time: https://pen.iana.org/pen/PenApplication.page
+export const expoProjectInformationOID =
+  '1.2.840.113556.1.8000.2554.43437.254.128.102.157.7894389.20439.2.1';
+
 /**
  * Generate a public and private RSA key pair.
  * @returns RSA key pair
@@ -78,7 +82,25 @@ export function convertPrivateKeyPEMToPrivateKey(privateKeyPEM: string): PKI.rsa
  * @returns  X.509 Certificate
  */
 export function convertCertificatePEMToCertificate(certificatePEM: string): PKI.Certificate {
-  return PKI.certificateFromPem(certificatePEM);
+  return PKI.certificateFromPem(certificatePEM, true);
+}
+
+/**
+ * Convert a CSR to PEM-formatted X.509 CSR
+ * @param csr CSR
+ * @returns X.509 CSR
+ */
+export function convertCSRToCSRPEM(csr: PKI.CertificateRequest): string {
+  return PKI.certificationRequestToPem(csr);
+}
+
+/**
+ * Convert a PEM-formatted X.509 CSR to a CSR
+ * @param CSRPEM PEM-formatted X.509 CSR
+ * @returns CSR
+ */
+export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateRequest {
+  return PKI.certificationRequestFromPem(CSRPEM, true) as PKI.CertificateRequest;
 }
 
 type GenerateParameters = {
@@ -245,4 +267,93 @@ export function signStringRSASHA256AndVerify(
   }
 
   return util.encode64(digestSignature);
+}
+
+/**
+ * Generate a self-signed CSR for a given key pair. Most commonly used with {@link generateDevelopmentCertificateFromCSR}.
+ * @param keyPair RSA key pair
+ * @param commonName commonName attribute of the subject of the resulting certificate (human readable name of the certificate)
+ * @returns CSR
+ */
+export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.CertificateRequest {
+  const csr = PKI.createCertificationRequest();
+  csr.publicKey = keyPair.publicKey;
+  const attrs = [
+    {
+      name: 'commonName',
+      value: commonName,
+    },
+  ];
+  csr.setSubject(attrs);
+  csr.sign(keyPair.privateKey, md.sha256.create());
+  return csr;
+}
+
+/**
+ * For use by a server to generate a development certificate (good for 30 days) for a particular
+ * appId and scopeKey (fields verified by the client during certificate validation).
+ *
+ * Note that this function assumes the issuer is trusted, and that the user that created the CSR and issued
+ * the request has permission to sign manifests for the appId and scopeKey. This constraint must be
+ * verified on the server before calling this method.
+ *
+ * @param issuerPrivateKey private key to sign the resulting certificate with
+ * @param issuerCertificate parent certificate (should be a CA) of the resulting certificate
+ * @param csr certificate signing request containing the user's public key
+ * @param appId app ID (UUID) of the app that the resulting certificate will sign the development manifest for
+ * @param scopeKey scope key of the app that the resuting certificate will sign the development manifest for
+ * @returns certificate to use to sign development manifests
+ */
+export function generateDevelopmentCertificateFromCSR(
+  issuerPrivateKey: PKI.rsa.PrivateKey,
+  issuerCertificate: PKI.Certificate,
+  csr: PKI.CertificateRequest,
+  appId: string,
+  scopeKey: string
+): PKI.Certificate {
+  assert(csr.verify(csr), 'CSR not self-signed');
+
+  const certificate = PKI.createCertificate();
+  certificate.publicKey = csr.publicKey;
+  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
+
+  // set certificate subject attrs from CSR
+  certificate.setSubject(csr.subject.attributes);
+
+  // 30 day validity
+  certificate.validity.notBefore = new Date();
+  certificate.validity.notAfter = new Date();
+  certificate.validity.notAfter.setDate(certificate.validity.notBefore.getDate() + 30);
+
+  certificate.setIssuer(issuerCertificate.subject.attributes);
+
+  certificate.setExtensions([
+    {
+      name: 'keyUsage',
+      critical: true,
+      keyCertSign: false,
+      digitalSignature: true,
+      nonRepudiation: false,
+      keyEncipherment: false,
+      dataEncipherment: false,
+    },
+    {
+      name: 'extKeyUsage',
+      critical: true,
+      serverAuth: false,
+      clientAuth: false,
+      codeSigning: true,
+      emailProtection: false,
+      timeStamping: false,
+    },
+    {
+      name: 'expoProjectInformation',
+      id: expoProjectInformationOID,
+      // critical: true, // can't be critical since openssl verify doesn't know about this extension
+      value: `${appId},${scopeKey}`,
+    },
+  ]);
+
+  certificate.sign(issuerPrivateKey, md.sha256.create());
+  return certificate;
 }

@@ -24,6 +24,7 @@ describe(generateKeyPair, () => {
     const keyPair = generateKeyPair();
     expect(keyPair.privateKey).toBeTruthy();
     expect(keyPair.publicKey).toBeTruthy();
+    expect(keyPair.publicKey.n.bitLength()).toEqual(2048);
 
     const digest = md.sha256.create().update('hello');
     expect(

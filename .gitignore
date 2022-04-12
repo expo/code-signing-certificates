@@ -36,3 +36,4 @@ coverage/
 coverage-integration/
 doc/
 keys/
+generated-test-data/

@@ -211,7 +211,7 @@ async function exportCertificateAndKeysAsync(
 ): Promise<void> {
   await Promise.all([
     fs.writeFile(
-      `generated-test-data/privatekeys/${testCase}.pem`,
+      `generated-test-data/privatekeys/${testCase}-privateKey.pem`,
       PKI.privateKeyToPem(privateKey)
     ),
     fs.writeFile(`generated-test-data/${testCase}.pem`, PKI.certificateToPem(certificate)),

@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/**
+ * This script generates the full set of certificates and private keys needed to run the
+ * code signing test suite in the expo-updates package (both iOS and android).
+ */
+
 import fs from 'fs/promises';
 import { pki as PKI, util, random, md, pki } from 'node-forge';
 

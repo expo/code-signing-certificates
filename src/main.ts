@@ -3,7 +3,12 @@ import { md, pki as PKI, random, util } from 'node-forge';
 
 import { toPositiveHex } from './utils';
 
-// generated with oidgen script. in the microsoft OID space. could apply for Expo space but would take time: https://pen.iana.org/pen/PenApplication.page
+/**
+ * Custom X.509 extension that store information about the Expo project that a code signing certificate is valid for.
+ * Used to prevent spoofing of scoping identifiers in Expo Go.
+ *
+ * Note: Generated with oidgen script. Resides in the Microsoft OID space. Could apply for Expo space but would take time: https://pen.iana.org/pen/PenApplication.page
+ */
 export const expoProjectInformationOID =
   '1.2.840.113556.1.8000.2554.43437.254.128.102.157.7894389.20439.2.1';
 
@@ -41,8 +46,7 @@ export function convertCertificateToCertificatePEM(certificate: PKI.Certificate)
 
 /**
  * Convert a PEM-formatted RSA key pair to a key pair for use with this library.
- * @param privateKeyPEM PEM formatted private key
- * @param publicKeyPEM PEM formatted public key
+ * @param keyPair PEM-formatted private key and public key
  * @returns RSA key pair
  */
 export function convertKeyPairPEMToKeyPair({
@@ -127,9 +131,7 @@ type GenerateParameters = {
 };
 
 /**
- * Generate a self-signed code-signing certificate for use with expo-updates.
- * Note that while certificate chains may be supported at some point in expo-updates, for now
- * only self-signed certificates are supported.
+ * Generate a self-signed (root) code-signing certificate valid for use with expo-updates.
  *
  * @returns PKI.Certificate valid for expo-updates code signing
  */
@@ -243,12 +245,15 @@ export function validateSelfSignedCertificate(
 }
 
 /**
- * Sign a string with an RSA private key and verify that the signature is valid for the RSA
- * public key in the certificate.
+ * Sign a SHA256 hash of the provided string with an RSA private key and verify that the signature
+ * is valid for the RSA public key in the certificate. The verification part is most useful for
+ * debugging, so while this may be used in server implementation for expo-updates code signing,
+ * a similar method without verification can be created for efficiency for use in production.
+ *
  * @param privateKey RSA private key
  * @param certificate X.509 certificate
- * @param stringToSign string for which to generate a signature and verify
- * @returns base64-encoded signature
+ * @param stringToSign string for which to hash, generate a signature and verify
+ * @returns base64-encoded RSA signature
  */
 export function signStringRSASHA256AndVerify(
   privateKey: PKI.rsa.PrivateKey,
@@ -291,7 +296,7 @@ export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.C
 
 /**
  * For use by a server to generate a development certificate (good for 30 days) for a particular
- * appId and scopeKey (fields verified by the client during certificate validation).
+ * appId and scopeKey (Expo project manifest fields verified by the client during certificate validation).
  *
  * Note that this function assumes the issuer is trusted, and that the user that created the CSR and issued
  * the request has permission to sign manifests for the appId and scopeKey. This constraint must be

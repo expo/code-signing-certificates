@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+/**
+ * Simple wrapper script around {@link generateSelfSignedCodeSigningCertificate}.
+ */
+
 import fs from 'fs/promises';
 import { pki as PKI, pki } from 'node-forge';
 

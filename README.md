@@ -1,4 +1,4 @@
-# code-signing-certificates
+# @expo/code-signing-certificates
 
 A library for working with expo-updates code signing certificates.
 

@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+/**
+ * This script generates an example chain of certificates simulating the Expo Go
+ * use case, which is as follows:
+ * - Root CA certificate embedded in Expo Go client. Private key stored offline.
+ * - Intermediate CA certificate generated and served alongside the manifest, verified against embedded root certificate.
+ *   Private key stored on server to sign manifests on-demand and generate child code signing certificate on-demand.
+ * - Child code signing certificate generated via a CSR for offline development using `expo start`, and served alongside the
+ *   development manifest in addition to the intermediate certificate.
+ */
+
 import fs from 'fs/promises';
 import { pki as PKI, util, random, md, pki } from 'node-forge';
 

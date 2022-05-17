@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+/**
+ * A simple helper script to sign the SHA-256 hash of a string with a RSA private key.
+ * Outputs the Base64-encoded result.
+ */
+
 import { md, pki as PKI, util } from 'node-forge';
 
 export async function run(): Promise<void> {

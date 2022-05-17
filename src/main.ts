@@ -4,7 +4,7 @@ import { md, pki as PKI, random, util } from 'node-forge';
 import { toPositiveHex } from './utils';
 
 /**
- * Custom X.509 extension that store information about the Expo project that a code signing certificate is valid for.
+ * Custom X.509 extension that stores information about the Expo project that a code signing certificate is valid for.
  * Used to prevent spoofing of scoping identifiers in Expo Go.
  *
  * Note: Generated with oidgen script. Resides in the Microsoft OID space. Could apply for Expo space but would take time: https://pen.iana.org/pen/PenApplication.page
@@ -245,14 +245,14 @@ export function validateSelfSignedCertificate(
 }
 
 /**
- * Sign a SHA256 hash of the provided string with an RSA private key and verify that the signature
+ * Sign a SHA-256 hash of the provided string with an RSA private key and verify that the signature
  * is valid for the RSA public key in the certificate. The verification part is most useful for
  * debugging, so while this may be used in server implementation for expo-updates code signing,
  * a similar method without verification can be created for efficiency for use in production.
  *
  * @param privateKey RSA private key
  * @param certificate X.509 certificate
- * @param stringToSign string for which to hash, generate a signature and verify
+ * @param stringToSign string to hash, generate a signature for, and verify
  * @returns base64-encoded RSA signature
  */
 export function signStringRSASHA256AndVerify(

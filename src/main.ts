@@ -325,8 +325,9 @@ export function generateDevelopmentCertificateFromCSR(
   // set certificate subject attrs from CSR
   certificate.setSubject(csr.subject.attributes);
 
-  // 30 day validity
+  // 30 day validity into the future, 5 days in the past just in case of clock skew at callsite
   certificate.validity.notBefore = new Date();
+  certificate.validity.notBefore.setDate(certificate.validity.notBefore.getDate() - 5);
   certificate.validity.notAfter = new Date();
   certificate.validity.notAfter.setDate(certificate.validity.notBefore.getDate() + 30);
 

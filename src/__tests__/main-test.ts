@@ -313,5 +313,10 @@ describe('CSR generation and certificate generation from CA + CSR', () => {
       id: expoProjectInformationOID,
       value: 'testApp,testScopeKey',
     });
+    expect(certificate.validity.notBefore.getTime()).toBeLessThanOrEqual(Date.now());
+
+    const expectedNotAfter = certificate.validity.notBefore;
+    expectedNotAfter.setDate(expectedNotAfter.getDate() + 30);
+    expect(certificate.validity.notAfter.getTime()).toEqual(expectedNotAfter.getTime());
   });
 });

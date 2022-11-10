@@ -14,7 +14,8 @@
     "generate-example-self-signed": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateExampleSelfSignedCertificate.ts",
     "generate-certificates-for-tests": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateCertificatesForTests.ts",
     "oidgen": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/oidgen/oidgen.ts",
-    "sign-manifest-for-testing": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/signManifestForTesting.ts"
+    "sign-manifest-for-testing": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/signManifestForTesting.ts",
+    "sanity-check-signature": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/sanityCheckSignature.ts"
   },
   "repository": {
     "type": "git",

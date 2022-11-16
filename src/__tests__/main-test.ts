@@ -255,7 +255,7 @@ describe(signStringRSASHA256AndVerify, () => {
     ]);
     const privateKey = convertPrivateKeyPEMToPrivateKey(privateKeyPEM);
     const certificate = convertCertificatePEMToCertificate(certificatePEM);
-    const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello');
+    const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello', 'utf8');
     expect(signature).toMatchSnapshot();
   });
 });

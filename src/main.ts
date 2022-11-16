@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { md, pki as PKI, random, util } from 'node-forge';
+import { Encoding, md, pki as PKI, random, util } from 'node-forge';
 
 import { toPositiveHex } from './utils';
 
@@ -258,9 +258,10 @@ export function validateSelfSignedCertificate(
 export function signStringRSASHA256AndVerify(
   privateKey: PKI.rsa.PrivateKey,
   certificate: PKI.Certificate,
-  stringToSign: string
+  stringToSign: string,
+  encoding: Encoding
 ): string {
-  const digest = md.sha256.create().update(stringToSign);
+  const digest = md.sha256.create().update(stringToSign, encoding);
   const digestSignature = privateKey.sign(digest);
   const isValidSignature = (certificate.publicKey as PKI.rsa.PublicKey).verify(
     digest.digest().getBytes(),

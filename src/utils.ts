@@ -12,10 +12,3 @@ export function toPositiveHex(hexString: string): string {
   mostSignificantHexAsInt -= 8;
   return mostSignificantHexAsInt.toString(16) + hexString.substring(1);
 }
-
-export function uIntArray8ToNodeForgeRawString(uint8Array: Uint8Array): string {
-  const bufferToSign = Buffer.isBuffer(uint8Array)
-    ? uint8Array
-    : Buffer.from(uint8Array.buffer, uint8Array.byteOffset, uint8Array.byteLength);
-  return bufferToSign.toString('binary');
-}

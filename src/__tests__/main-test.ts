@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { md } from 'node-forge';
+import { md, util } from 'node-forge';
 import path from 'path';
 
 import {
@@ -261,6 +261,11 @@ describe(signBufferRSASHA256AndVerify, () => {
       Buffer.from('hello', 'utf-8')
     );
     expect(signature).toMatchSnapshot();
+  });
+
+  test.each([['a', 'öäå']])('encoding assumption about node-forge: case %p', (input) => {
+    expect(Buffer.from(input).toString('binary')).toEqual(util.encodeUtf8(input));
+    expect(Buffer.from(input, 'utf-8').toString('binary')).toEqual(util.encodeUtf8(input));
   });
 });
 

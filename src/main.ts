@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { md, pki as PKI, random, util } from 'node-forge';
 
-import { toPositiveHex, uIntArray8ToNodeForgeRawString } from './utils';
+import { toPositiveHex } from './utils';
 
 /**
  * Custom X.509 extension that stores information about the Expo project that a code signing certificate is valid for.
@@ -258,9 +258,9 @@ export function validateSelfSignedCertificate(
 export function signBufferRSASHA256AndVerify(
   privateKey: PKI.rsa.PrivateKey,
   certificate: PKI.Certificate,
-  uint8Array: Uint8Array
+  bufferToSign: Buffer
 ): string {
-  const digest = md.sha256.create().update(uIntArray8ToNodeForgeRawString(uint8Array));
+  const digest = md.sha256.create().update(bufferToSign.toString('binary'));
   const digestSignature = privateKey.sign(digest);
   const isValidSignature = (certificate.publicKey as PKI.rsa.PublicKey).verify(
     digest.digest().getBytes(),

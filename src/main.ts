@@ -1,7 +1,7 @@
 import assert from 'assert';
-import { Encoding, md, pki as PKI, random, util } from 'node-forge';
+import { md, pki as PKI, random, util } from 'node-forge';
 
-import { toPositiveHex } from './utils';
+import { toPositiveHex, uIntArray8ToNodeForgeRawString } from './utils';
 
 /**
  * Custom X.509 extension that stores information about the Expo project that a code signing certificate is valid for.
@@ -252,16 +252,15 @@ export function validateSelfSignedCertificate(
  *
  * @param privateKey RSA private key
  * @param certificate X.509 certificate
- * @param stringToSign string to hash, generate a signature for, and verify
+ * @param bufferToSign buffer to hash, generate a signature for, and verify
  * @returns base64-encoded RSA signature
  */
-export function signStringRSASHA256AndVerify(
+export function signBufferRSASHA256AndVerify(
   privateKey: PKI.rsa.PrivateKey,
   certificate: PKI.Certificate,
-  stringToSign: string,
-  encoding: Encoding
+  uint8Array: Uint8Array
 ): string {
-  const digest = md.sha256.create().update(stringToSign, encoding);
+  const digest = md.sha256.create().update(uIntArray8ToNodeForgeRawString(uint8Array));
   const digestSignature = privateKey.sign(digest);
   const isValidSignature = (certificate.publicKey as PKI.rsa.PublicKey).verify(
     digest.digest().getBytes(),

@@ -15,7 +15,7 @@ import {
   generateDevelopmentCertificateFromCSR,
   generateKeyPair,
   generateSelfSignedCodeSigningCertificate,
-  signStringRSASHA256AndVerify,
+  signBufferRSASHA256AndVerify,
   validateSelfSignedCertificate,
 } from '../main';
 
@@ -247,7 +247,7 @@ describe(validateSelfSignedCertificate, () => {
   });
 });
 
-describe(signStringRSASHA256AndVerify, () => {
+describe(signBufferRSASHA256AndVerify, () => {
   it('signs and verifies', async () => {
     const [privateKeyPEM, certificatePEM] = await Promise.all([
       fs.readFile(path.join(__dirname, './fixtures/test-private-key.pem'), 'utf8'),
@@ -255,7 +255,11 @@ describe(signStringRSASHA256AndVerify, () => {
     ]);
     const privateKey = convertPrivateKeyPEMToPrivateKey(privateKeyPEM);
     const certificate = convertCertificatePEMToCertificate(certificatePEM);
-    const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello', 'utf8');
+    const signature = signBufferRSASHA256AndVerify(
+      privateKey,
+      certificate,
+      Buffer.from('hello', 'utf-8')
+    );
     expect(signature).toMatchSnapshot();
   });
 });

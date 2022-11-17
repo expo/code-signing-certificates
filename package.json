@@ -1,6 +1,6 @@
 {
   "name": "@expo/code-signing-certificates",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A library for working with expo-updates code signing certificates",
   "main": "build/main.js",
   "types": "build/main.d.ts",

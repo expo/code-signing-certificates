@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { md } from 'node-forge';
+import { md, util } from 'node-forge';
 import path from 'path';
 
 import {
@@ -15,7 +15,7 @@ import {
   generateDevelopmentCertificateFromCSR,
   generateKeyPair,
   generateSelfSignedCodeSigningCertificate,
-  signStringRSASHA256AndVerify,
+  signBufferRSASHA256AndVerify,
   validateSelfSignedCertificate,
 } from '../main';
 
@@ -247,7 +247,7 @@ describe(validateSelfSignedCertificate, () => {
   });
 });
 
-describe(signStringRSASHA256AndVerify, () => {
+describe(signBufferRSASHA256AndVerify, () => {
   it('signs and verifies', async () => {
     const [privateKeyPEM, certificatePEM] = await Promise.all([
       fs.readFile(path.join(__dirname, './fixtures/test-private-key.pem'), 'utf8'),
@@ -255,8 +255,17 @@ describe(signStringRSASHA256AndVerify, () => {
     ]);
     const privateKey = convertPrivateKeyPEMToPrivateKey(privateKeyPEM);
     const certificate = convertCertificatePEMToCertificate(certificatePEM);
-    const signature = signStringRSASHA256AndVerify(privateKey, certificate, 'hello', 'utf8');
+    const signature = signBufferRSASHA256AndVerify(
+      privateKey,
+      certificate,
+      Buffer.from('hello', 'utf-8')
+    );
     expect(signature).toMatchSnapshot();
+  });
+
+  test.each([['a', 'öäå']])('encoding assumption about node-forge: case %p', (input) => {
+    expect(Buffer.from(input).toString('binary')).toEqual(util.encodeUtf8(input));
+    expect(Buffer.from(input, 'utf-8').toString('binary')).toEqual(util.encodeUtf8(input));
   });
 });
 

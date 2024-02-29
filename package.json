@@ -15,7 +15,8 @@
     "generate-certificates-for-tests": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateCertificatesForTests.ts",
     "oidgen": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/oidgen/oidgen.ts",
     "sign-manifest-for-testing": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/signManifestForTesting.ts",
-    "sanity-check-signature": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/sanityCheckSignature.ts"
+    "sanity-check-signature": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/sanityCheckSignature.ts",
+    "generate-expo-go-intermediate-certificate": "ts-node -r tsconfig-paths/register --project tsconfig.scripts.json ./scripts/generateExpoGoIntermediateCertificate.ts"
   },
   "repository": {
     "type": "git",

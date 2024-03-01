@@ -16,7 +16,7 @@ type KeysAndCertificate = {
 
 /**
  * Generate a new Expo Go intermediate certificate from the existing root private key and certificate.
- * (The Expo root key and certificate PEMs can be found in 1password and then copied to the `keys` folder here
+ * (The Expo root key and certificate PEMs can be found in 1Password and then copied to the `keys` folder here
  * to be processed by this script).
  */
 async function generateExpoGoIntermediateCertificate(

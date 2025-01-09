@@ -12,14 +12,10 @@ jobs:
     - uses: actions/checkout@v2
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v4
       with:
         node-version: 12.x
-    - name: Cache Node.js modules
-      uses: actions/cache@v1
-      with:
-        path: ${{ github.workspace }}/node_modules
-        key: ${{ runner.OS }}-node_modules-${{ hashFiles('yarn.lock') }}
+        cache: yarn
     - run: yarn --frozen-lockfile
     - run: yarn lint -- --max-warnings=0
     - run: yarn test -- --coverage

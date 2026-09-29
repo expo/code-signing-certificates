@@ -1,8 +1,5 @@
 {
   "extends": ["@tsconfig/bases/strictest", "@tsconfig/bases/node22"],
-  "ts-node": {
-    "transpileOnly": true
-  },
   "compilerOptions": {
     "skipLibCheck": false,
     "allowJs": true,

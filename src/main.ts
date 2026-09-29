@@ -104,7 +104,7 @@ export function convertCSRToCSRPEM(csr: PKI.CertificateSigningRequest): string {
  * @returns CSR
  */
 export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateSigningRequest {
-  return PKI.certificationRequestFromPem(CSRPEM, true) as PKI.CertificateSigningRequest;
+  return PKI.certificationRequestFromPem(CSRPEM, true);
 }
 
 type GenerateParameters = {

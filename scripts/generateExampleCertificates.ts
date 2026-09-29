@@ -240,4 +240,4 @@ async function generateTestDevelopmentCertificate(
   };
 }
 
-run();
+void run();

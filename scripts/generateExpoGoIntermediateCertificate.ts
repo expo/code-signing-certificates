@@ -133,4 +133,4 @@ export async function run(): Promise<void> {
   await exportCertificateAndKeysAsync(expoGo, 'expo-go');
 }
 
-run();
+void run();

@@ -5,6 +5,7 @@
  * code signing test suite in the expo-updates package (both iOS and Android).
  */
 
+import assert from 'assert';
 import fs from 'fs/promises';
 import { pki as PKI, util, random, md, pki } from 'node-forge';
 
@@ -455,6 +456,8 @@ async function generateTestDevelopmentCertificate(
   const csr = csrKeysAndCSR.csr;
   const issuerCertificate = intermediate.certificate;
   const issuerPrivateKey = intermediate.privateKey;
+
+  assert(csr.publicKey, 'CSR must have a public key');
 
   const certificate = PKI.createCertificate();
   certificate.publicKey = csr.publicKey;

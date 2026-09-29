@@ -1,6 +1,6 @@
 {
   "name": "@expo/code-signing-certificates",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "A library for working with expo-updates code signing certificates",
   "keywords": [
     "code signing"
@@ -16,12 +16,13 @@
     "url": "https://github.com/expo/code-signing-certificates.git"
   },
   "files": [
-    "build"
+    "build",
+    "!build/__tests__"
   ],
   "main": "build/main.js",
   "types": "build/main.d.ts",
   "scripts": {
-    "tsc": "tsc",
+    "tsc": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
     "clean": "rm -rf build coverage coverage-integration",
     "lint": "oxlint --type-aware . --max-warnings=0 && yarn format-check",

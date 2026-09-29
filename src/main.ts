@@ -3,6 +3,9 @@ import { md, pki as PKI, random, util } from 'node-forge';
 
 import { toPositiveHex } from './utils';
 
+// pki.CertificateRequest before @types/node-forge 1.3.11, pki.CertificateSigningRequest from it
+type CertificationRequest = ReturnType<typeof PKI.createCertificationRequest>;
+
 /**
  * Custom X.509 extension that stores information about the Expo project that a code signing certificate is valid for.
  * Used to prevent spoofing of scoping identifiers in Expo Go.
@@ -94,7 +97,7 @@ export function convertCertificatePEMToCertificate(certificatePEM: string): PKI.
  * @param csr CSR
  * @returns X.509 CSR
  */
-export function convertCSRToCSRPEM(csr: PKI.CertificateRequest): string {
+export function convertCSRToCSRPEM(csr: CertificationRequest): string {
   return PKI.certificationRequestToPem(csr);
 }
 
@@ -103,8 +106,8 @@ export function convertCSRToCSRPEM(csr: PKI.CertificateRequest): string {
  * @param CSRPEM PEM-formatted X.509 CSR
  * @returns CSR
  */
-export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateRequest {
-  return PKI.certificationRequestFromPem(CSRPEM, true) as PKI.CertificateRequest;
+export function convertCSRPEMToCSR(CSRPEM: string): CertificationRequest {
+  return PKI.certificationRequestFromPem(CSRPEM, true) as CertificationRequest;
 }
 
 type GenerateParameters = {
@@ -280,7 +283,7 @@ export function signBufferRSASHA256AndVerify(
  * @param commonName commonName attribute of the subject of the resulting certificate (human readable name of the certificate)
  * @returns CSR
  */
-export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.CertificateRequest {
+export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): CertificationRequest {
   const csr = PKI.createCertificationRequest();
   csr.publicKey = keyPair.publicKey;
   const attrs = [
@@ -312,7 +315,7 @@ export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.C
 export function generateDevelopmentCertificateFromCSR(
   issuerPrivateKey: PKI.rsa.PrivateKey,
   issuerCertificate: PKI.Certificate,
-  csr: PKI.CertificateRequest,
+  csr: CertificationRequest,
   appId: string,
   scopeKey: string
 ): PKI.Certificate {

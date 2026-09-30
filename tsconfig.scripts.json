@@ -6,7 +6,6 @@
   "compilerOptions": {
     "allowJs": true,
     "rootDir": "./scripts",
-    "baseUrl": "./scripts",
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

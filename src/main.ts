@@ -94,7 +94,7 @@ export function convertCertificatePEMToCertificate(certificatePEM: string): PKI.
  * @param csr CSR
  * @returns X.509 CSR
  */
-export function convertCSRToCSRPEM(csr: PKI.CertificateRequest): string {
+export function convertCSRToCSRPEM(csr: PKI.CertificateSigningRequest): string {
   return PKI.certificationRequestToPem(csr);
 }
 
@@ -103,8 +103,8 @@ export function convertCSRToCSRPEM(csr: PKI.CertificateRequest): string {
  * @param CSRPEM PEM-formatted X.509 CSR
  * @returns CSR
  */
-export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateRequest {
-  return PKI.certificationRequestFromPem(CSRPEM, true) as PKI.CertificateRequest;
+export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateSigningRequest {
+  return PKI.certificationRequestFromPem(CSRPEM, true) as PKI.CertificateSigningRequest;
 }
 
 type GenerateParameters = {
@@ -280,7 +280,10 @@ export function signBufferRSASHA256AndVerify(
  * @param commonName commonName attribute of the subject of the resulting certificate (human readable name of the certificate)
  * @returns CSR
  */
-export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.CertificateRequest {
+export function generateCSR(
+  keyPair: PKI.rsa.KeyPair,
+  commonName: string
+): PKI.CertificateSigningRequest {
   const csr = PKI.createCertificationRequest();
   csr.publicKey = keyPair.publicKey;
   const attrs = [
@@ -312,11 +315,12 @@ export function generateCSR(keyPair: PKI.rsa.KeyPair, commonName: string): PKI.C
 export function generateDevelopmentCertificateFromCSR(
   issuerPrivateKey: PKI.rsa.PrivateKey,
   issuerCertificate: PKI.Certificate,
-  csr: PKI.CertificateRequest,
+  csr: PKI.CertificateSigningRequest,
   appId: string,
   scopeKey: string
 ): PKI.Certificate {
-  assert(csr.verify(csr), 'CSR not self-signed');
+  assert(csr.verify(), 'CSR not self-signed');
+  assert(csr.publicKey, 'CSR must have a public key');
 
   const certificate = PKI.createCertificate();
   certificate.publicKey = csr.publicKey;

@@ -25,7 +25,7 @@ type KeysAndCertificate = {
 type KeysAndCSR = {
   publicKey: pki.rsa.PublicKey;
   privateKey: pki.rsa.PrivateKey;
-  csr: pki.CertificateRequest;
+  csr: pki.CertificateSigningRequest;
 };
 
 const testAppId = '285dc9ca-a25d-4f60-93be-36dc312266d7';

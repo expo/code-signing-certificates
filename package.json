@@ -22,6 +22,7 @@
   "types": "build/main.d.ts",
   "scripts": {
     "tsc": "tsc",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
     "clean": "rm -rf build coverage coverage-integration",
     "lint": "oxlint --type-aware . --max-warnings=0 && yarn format-check",
     "lint-fix": "oxlint --type-aware --fix . && yarn format",
@@ -40,7 +41,7 @@
     "node-forge": "^1.4.0"
   },
   "devDependencies": {
-    "@tsconfig/node14": "^1.0.1",
+    "@tsconfig/bases": "^1.0.28",
     "@types/jest": "^30",
     "@types/jsbn": "^1.2.30",
     "@types/node": "^24",
@@ -55,5 +56,8 @@
     "ts-node-dev": "^1.1.8",
     "typescript": "^6.0.3",
     "uuid": "^8.3.2"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

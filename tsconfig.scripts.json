@@ -1,21 +1,15 @@
 {
-  "extends": "@tsconfig/node14/tsconfig.json",
+  "extends": ["@tsconfig/bases/strictest", "@tsconfig/bases/node22"],
   "ts-node": {
     "transpileOnly": true
   },
   "compilerOptions": {
+    "skipLibCheck": false,
     "allowJs": true,
-    "rootDir": "./scripts",
+    "rootDir": ".",
     "noEmit": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitAny": true,
-    "isolatedModules": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "resolveJsonModule": true
   },
-  "include": ["scripts", "src"]
+  "include": ["scripts", "src"],
+  "exclude": ["src/__tests__"]
 }

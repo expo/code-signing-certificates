@@ -5,8 +5,9 @@ import assert from 'assert';
 // this RFC in section 4.1.2.2 requires serial numbers to be positive
 // http://www.ietf.org/rfc/rfc5280.txt
 export function toPositiveHex(hexString: string): string {
-  assert(hexString[0] !== undefined && hexString[0] !== null);
-  let mostSignificantHexAsInt = parseInt(hexString[0], 16);
+  const mostSignificantHex = hexString[0];
+  assert(mostSignificantHex !== undefined);
+  let mostSignificantHexAsInt = parseInt(mostSignificantHex, 16);
   if (mostSignificantHexAsInt < 8) {
     return hexString;
   }

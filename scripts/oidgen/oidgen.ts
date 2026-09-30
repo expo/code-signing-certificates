@@ -65,4 +65,4 @@ function generateOID(): string {
   );
 }
 
-run();
+void run();

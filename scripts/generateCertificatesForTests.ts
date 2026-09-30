@@ -79,7 +79,7 @@ export async function run(): Promise<void> {
     signatureInvalidPEMInitial.length - 41,
     'a'
   );
-  fs.writeFile(`generated-test-data/signatureInvalid.pem`, signatureInvalidPEM);
+  await fs.writeFile(`generated-test-data/signatureInvalid.pem`, signatureInvalidPEM);
 
   // normal chain
   const chainRoot = await generateExpoRootCertificateAsync((extensions) => extensions);
@@ -102,7 +102,10 @@ export async function run(): Promise<void> {
     invalidSignatureChainLeafPEMInitial.length - 41,
     'a'
   );
-  fs.writeFile(`generated-test-data/invalidSignatureChainLeaf.pem`, invalidSignatureChainLeafPEM);
+  await fs.writeFile(
+    `generated-test-data/invalidSignatureChainLeaf.pem`,
+    invalidSignatureChainLeafPEM
+  );
 
   // not CA intermediate chain
   const chainNotCARoot = await generateExpoRootCertificateAsync((extensions) => extensions);
@@ -503,4 +506,4 @@ async function generateTestDevelopmentCertificate(
   };
 }
 
-run();
+void run();

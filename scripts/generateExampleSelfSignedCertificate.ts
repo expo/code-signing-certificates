@@ -40,4 +40,4 @@ async function exportCertificateAndKeysAsync(
   ]);
 }
 
-run();
+void run();

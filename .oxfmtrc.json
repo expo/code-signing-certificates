@@ -1,0 +1,25 @@
+{
+  "printWidth": 100,
+  "useTabs": false,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "sortImports": {
+    "groups": [
+      ["builtin", "external"],
+      ["internal", "subpath"],
+      ["parent", "sibling", "index"],
+      "unknown"
+    ],
+    "ignoreCase": false
+  },
+  "ignorePatterns": [
+    "build",
+    "coverage",
+    "coverage-integration",
+    "doc",
+    "keys",
+    "generated-test-data"
+  ]
+}

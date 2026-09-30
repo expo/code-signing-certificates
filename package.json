@@ -2,13 +2,31 @@
   "name": "@expo/code-signing-certificates",
   "version": "0.0.6",
   "description": "A library for working with expo-updates code signing certificates",
+  "keywords": [
+    "code signing"
+  ],
+  "homepage": "https://github.com/expo/code-signing-certificates/tree/main#readme",
+  "bugs": {
+    "url": "https://github.com/expo/code-signing-certificates/issues"
+  },
+  "license": "MIT",
+  "author": "Expo <support@expo.dev>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/expo/code-signing-certificates.git"
+  },
+  "files": [
+    "build"
+  ],
   "main": "build/main.js",
   "types": "build/main.d.ts",
   "scripts": {
     "tsc": "tsc",
     "clean": "rm -rf build coverage coverage-integration",
-    "lint": "eslint src",
-    "lint-fix": "eslint src --fix",
+    "lint": "oxlint --type-aware . --max-warnings=0 && yarn format-check",
+    "lint-fix": "oxlint --type-aware --fix . && yarn format",
+    "format": "oxfmt --write .",
+    "format-check": "oxfmt --check .",
     "test": "jest --rootDir . --config jest.config.js",
     "generate-example-certificates": "ts-node --project tsconfig.scripts.json ./scripts/generateExampleCertificates.ts",
     "generate-example-self-signed": "ts-node --project tsconfig.scripts.json ./scripts/generateExampleSelfSignedCertificate.ts",
@@ -18,22 +36,6 @@
     "sanity-check-signature": "ts-node --project tsconfig.scripts.json ./scripts/sanityCheckSignature.ts",
     "generate-expo-go-intermediate-certificate": "ts-node --project tsconfig.scripts.json ./scripts/generateExpoGoIntermediateCertificate.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/expo/code-signing-certificates.git"
-  },
-  "keywords": [
-    "code signing"
-  ],
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/expo/code-signing-certificates/issues"
-  },
-  "author": "Expo <support@expo.dev>",
-  "homepage": "https://github.com/expo/code-signing-certificates/tree/main#readme",
-  "files": [
-    "build"
-  ],
   "dependencies": {
     "node-forge": "^1.4.0"
   },
@@ -44,12 +46,11 @@
     "@types/node": "^24",
     "@types/node-forge": "^1.3.14",
     "@types/uuid": "^8.3.4",
-    "@typescript-eslint/eslint-plugin": "^5.11.0",
-    "@typescript-eslint/parser": "^5.11.0",
-    "eslint": "^8.8.0",
-    "eslint-config-universe": "^10.0.0",
     "jest": "^30",
-    "prettier": "^2.5.1",
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
+    "oxlint-config-universe": "^0.2.0",
+    "oxlint-tsgolint": "7.0.2003",
     "ts-jest": "^29.4",
     "ts-node-dev": "^1.1.8",
     "typescript": "^6.0.3",

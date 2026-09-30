@@ -51,4 +51,4 @@ export async function run(): Promise<void> {
   console.log(util.encode64(digestSignature));
 }
 
-run();
+void run();

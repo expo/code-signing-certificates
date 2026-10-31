@@ -11,21 +11,31 @@
  */
 
 import fs from 'fs/promises';
-import { pki as PKI, util, random, md, pki } from 'node-forge';
+import type { KeyObject } from 'node:crypto';
 
-import { generateCSR, generateDevelopmentCertificateFromCSR, generateKeyPair } from '../src/main';
-import { toPositiveHex } from '../src/utils';
+import {
+  convertCertificateToCertificatePEM,
+  generateCSR,
+  generateDevelopmentCertificateFromCSR,
+  generateKeyPair,
+} from '../src/main';
+import {
+  type CodeSigningCertificate,
+  type CertificateSigningRequest,
+  getCertificateData,
+} from '../src/x509';
+import { createCertificate, type CertificateExtension } from '../src/x509Generation';
 
 type KeysAndCertificate = {
-  publicKey: pki.rsa.PublicKey;
-  privateKey: pki.rsa.PrivateKey;
-  certificate: pki.Certificate;
+  publicKey: KeyObject;
+  privateKey: KeyObject;
+  certificate: CodeSigningCertificate;
 };
 
 type KeysAndCSR = {
-  publicKey: pki.rsa.PublicKey;
-  privateKey: pki.rsa.PrivateKey;
-  csr: pki.CertificateSigningRequest;
+  publicKey: KeyObject;
+  privateKey: KeyObject;
+  csr: CertificateSigningRequest;
 };
 
 const testAppId = '285dc9ca-a25d-4f60-93be-36dc312266d7';
@@ -42,12 +52,6 @@ export async function run(): Promise<void> {
 
   const testDevelopmentCert = await generateTestDevelopmentCertificate(developmentCSR, expoGo);
   await exportCertificateAndKeysAsync(testDevelopmentCert, 'development');
-
-  // verify certificate chain
-  // const caStore = PKI.createCaStore();
-  // caStore.addCertificate(expoGo.certificate);
-  // const chain = [testDevelopmentCert.certificate, expoGo.certificate];
-  // PKI.verifyCertificateChain(caStore, chain);
 }
 
 async function exportCertificateAndKeysAsync(
@@ -55,23 +59,25 @@ async function exportCertificateAndKeysAsync(
   prefix: string
 ): Promise<void> {
   await Promise.all([
-    fs.writeFile(`keys/${prefix}-public-key.pem`, PKI.publicKeyToPem(publicKey)),
-    fs.writeFile(`keys/${prefix}-private-key.pem`, PKI.privateKeyToPem(privateKey)),
-    fs.writeFile(`keys/${prefix}-certificate.pem`, PKI.certificateToPem(certificate)),
+    fs.writeFile(
+      `keys/${prefix}-public-key.pem`,
+      publicKey.export({ type: 'spki', format: 'pem' })
+    ),
+    fs.writeFile(
+      `keys/${prefix}-private-key.pem`,
+      privateKey.export({ type: 'pkcs1', format: 'pem' })
+    ),
+    fs.writeFile(`keys/${prefix}-certificate.pem`, convertCertificateToCertificatePEM(certificate)),
   ]);
 }
 
 async function generateExpoRootCertificateAsync(): Promise<KeysAndCertificate> {
   const { privateKey, publicKey } = generateKeyPair();
 
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
   // 20 year validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setFullYear(certificate.validity.notBefore.getFullYear() + 20);
+  const validityNotBefore = new Date();
+  const validityNotAfter = new Date();
+  validityNotAfter.setFullYear(validityNotBefore.getFullYear() + 20);
 
   const attrs = [
     {
@@ -100,11 +106,7 @@ async function generateExpoRootCertificateAsync(): Promise<KeysAndCertificate> {
     },
   ];
 
-  // root certificate is self-signed
-  certificate.setSubject(attrs);
-  certificate.setIssuer(attrs);
-
-  certificate.setExtensions([
+  const extensions: CertificateExtension[] = [
     {
       name: 'basicConstraints',
       cA: true,
@@ -119,9 +121,17 @@ async function generateExpoRootCertificateAsync(): Promise<KeysAndCertificate> {
       keyEncipherment: false,
       dataEncipherment: false,
     },
-  ]);
+  ];
 
-  certificate.sign(privateKey, md.sha256.create());
+  const certificate = createCertificate({
+    publicKey,
+    signingKey: privateKey,
+    subject: attrs,
+    issuer: attrs,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     privateKey,
@@ -135,14 +145,10 @@ async function generateExpoGoIntermediateCertificate(
 ): Promise<KeysAndCertificate> {
   const { privateKey, publicKey } = generateKeyPair();
 
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
   // 2 year validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setFullYear(certificate.validity.notBefore.getFullYear() + 2);
+  const validityNotBefore = new Date();
+  const validityNotAfter = new Date();
+  validityNotAfter.setFullYear(validityNotBefore.getFullYear() + 2);
 
   const attrs = [
     {
@@ -171,11 +177,7 @@ async function generateExpoGoIntermediateCertificate(
     },
   ];
 
-  certificate.setSubject(attrs);
-
-  certificate.setIssuer(rootKeysAndCert.certificate.subject.attributes);
-
-  certificate.setExtensions([
+  const extensions: CertificateExtension[] = [
     {
       name: 'basicConstraints',
       critical: true,
@@ -201,9 +203,17 @@ async function generateExpoGoIntermediateCertificate(
       emailProtection: false,
       timeStamping: false,
     },
-  ]);
+  ];
 
-  certificate.sign(rootKeysAndCert.privateKey, md.sha256.create());
+  const certificate = createCertificate({
+    publicKey,
+    signingKey: rootKeysAndCert.privateKey,
+    subject: attrs,
+    issuer: getCertificateData(rootKeysAndCert.certificate).parsed.tbsCertificate.subject,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     privateKey,

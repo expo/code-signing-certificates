@@ -2,6 +2,13 @@
 
 A library for working with expo-updates code signing certificates.
 
+## Migrating to 0.1
+
+Keys are now native Node `KeyObject`s, and certificates and CSRs use package-owned types.
+Replace Forge type annotations with the package's exported types; Forge inspection and mutation
+methods are no longer available. Existing PEM keys, certificates, CSRs, and manifest signatures
+remain interoperable, so credentials do not need regeneration. Helpers remain synchronous.
+
 [![tests](https://github.com/expo/code-signing-certificates/workflows/tests/badge.svg)](https://github.com/expo/code-signing-certificates/actions?query=workflow%3Atests)
 [![codecov](https://codecov.io/gh/expo/code-signing-certificates/branch/main/graph/badge.svg?token=tZvsh5UDLO)](https://codecov.io/gh/expo/code-signing-certificates)
 [![npm](https://img.shields.io/npm/v/@expo/code-signing-certificates)](https://www.npmjs.com/package/@expo/code-signing-certificates)

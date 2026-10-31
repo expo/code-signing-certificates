@@ -12,6 +12,5 @@ module.exports = {
     ],
   },
   rootDir: __dirname,
-  setupFiles: ['<rootDir>/jest.setup.js'],
   roots: ['src'],
 };

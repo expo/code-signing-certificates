@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: ['20.18.3', '20.x', '22.0.0', '22.x', '24.x']
+        node-version: ['20.18.3', '22.0.0', '24.x']
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       # Development tools need newer Node than the minimum supported runtime.
@@ -30,10 +30,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: yarn test --coverage=${{ matrix.node-version == '24.x' }}
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v5
         if: matrix.node-version == '24.x'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage/clover.xml
+          files: ./coverage/clover.xml
           flags: unittest
           fail_ci_if_error: true

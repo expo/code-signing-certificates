@@ -71,18 +71,11 @@ async function generateExpoGoIntermediateCertificate(
       keyCertSign: true,
       cRLSign: true,
       digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
     {
       name: 'extKeyUsage',
       critical: true,
-      serverAuth: false,
-      clientAuth: false,
       codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
     },
   ];
 

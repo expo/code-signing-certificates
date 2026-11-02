@@ -251,18 +251,11 @@ async function generateSelfSigned(
       critical: true,
       keyCertSign: false,
       digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
     {
       name: 'extKeyUsage',
       critical: true,
-      serverAuth: false,
-      clientAuth: false,
       codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
     },
   ]);
 
@@ -330,9 +323,6 @@ async function generateExpoRootCertificateAsync(
       keyCertSign: true,
       cRLSign: true,
       digitalSignature: false,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
   ]);
 
@@ -404,18 +394,11 @@ async function generateExpoGoIntermediateCertificate(
       keyCertSign: true,
       cRLSign: true,
       digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
     {
       name: 'extKeyUsage',
       critical: true,
-      serverAuth: false,
-      clientAuth: false,
       codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
     },
   ]);
 
@@ -464,18 +447,11 @@ async function generateTestDevelopmentCertificate(
       critical: true,
       keyCertSign: false,
       digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
     {
       name: 'extKeyUsage',
       critical: true,
-      serverAuth: false,
-      clientAuth: false,
       codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
     },
     {
       name: 'expoProjectInformation',

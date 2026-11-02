@@ -10,8 +10,6 @@ import * as asn1 from './asn1';
 import { toPositiveHex } from './utils';
 import * as x509 from './x509';
 
-const projectOID = '1.2.840.113556.1.8000.2554.43437.254.128.102.157.7894389.20439.2.1';
-
 export function createCSR(
   keyPair: { publicKey: crypto.KeyObject; privateKey: crypto.KeyObject },
   commonName: string
@@ -30,35 +28,23 @@ export function createCSR(
 export type NameAttribute = {
   name?: string;
   shortName?: string;
-  type?: string;
   value: string;
-  valueTagClass?: number;
 };
 const nameOIDs: Record<string, string> = {
   commonName: '2.5.4.3',
-  CN: '2.5.4.3',
   countryName: '2.5.4.6',
-  C: '2.5.4.6',
   localityName: '2.5.4.7',
-  L: '2.5.4.7',
-  stateOrProvinceName: '2.5.4.8',
   ST: '2.5.4.8',
   organizationName: '2.5.4.10',
-  O: '2.5.4.10',
-  organizationalUnitName: '2.5.4.11',
   OU: '2.5.4.11',
 };
 
 export function nameFromAttributes(attributes: NameAttribute[]): asn1X509.Name {
   return new asn1X509.Name(
     attributes.map((attribute) => {
-      const type = attribute.type ?? nameOIDs[attribute.name ?? attribute.shortName ?? ''];
+      const type = nameOIDs[attribute.name ?? attribute.shortName ?? ''];
       assert(type, 'Unknown distinguished name attribute');
-      const value = new asn1X509.AttributeValue(
-        attribute.valueTagClass === 12
-          ? { utf8String: attribute.value }
-          : { printableString: attribute.value }
-      );
+      const value = new asn1X509.AttributeValue({ printableString: attribute.value });
       return new asn1X509.RelativeDistinguishedName([
         new asn1X509.AttributeTypeAndValue({ type, value }),
       ]);
@@ -72,40 +58,13 @@ export type CertificateExtension = {
   critical?: boolean;
   value?: string | Uint8Array;
   digitalSignature?: boolean;
-  nonRepudiation?: boolean;
-  keyEncipherment?: boolean;
-  dataEncipherment?: boolean;
-  keyAgreement?: boolean;
   keyCertSign?: boolean;
   cRLSign?: boolean;
-  encipherOnly?: boolean;
-  decipherOnly?: boolean;
-  serverAuth?: boolean;
-  clientAuth?: boolean;
   codeSigning?: boolean;
-  emailProtection?: boolean;
-  timeStamping?: boolean;
   cA?: boolean;
   pathLenConstraint?: number;
 };
-const keyUsageNames = [
-  'digitalSignature',
-  'nonRepudiation',
-  'keyEncipherment',
-  'dataEncipherment',
-  'keyAgreement',
-  'keyCertSign',
-  'cRLSign',
-  'encipherOnly',
-  'decipherOnly',
-] as const;
-const extendedUsageOIDs = {
-  serverAuth: '1.3.6.1.5.5.7.3.1',
-  clientAuth: '1.3.6.1.5.5.7.3.2',
-  codeSigning: '1.3.6.1.5.5.7.3.3',
-  emailProtection: '1.3.6.1.5.5.7.3.4',
-  timeStamping: '1.3.6.1.5.5.7.3.8',
-};
+const keyUsageNames = ['digitalSignature', 'keyCertSign', 'cRLSign'] as const;
 
 function extensionFromParameters(parameters: CertificateExtension): asn1X509.Extension {
   let id = parameters.id;
@@ -119,9 +78,7 @@ function extensionFromParameters(parameters: CertificateExtension): asn1X509.Ext
     value = asn1.encodeASN(new asn1X509.KeyUsage(flags));
   } else if (parameters.name === 'extKeyUsage') {
     id = asn1.extendedKeyUsageOID;
-    const usages = Object.entries(extendedUsageOIDs)
-      .filter(([name]) => parameters[name as keyof typeof extendedUsageOIDs])
-      .map(([, oid]) => oid);
+    const usages = parameters.codeSigning ? [asn1X509.id_kp_codeSigning] : [];
     value = asn1.encodeASN(new asn1X509.ExtendedKeyUsage(usages));
   } else if (parameters.name === 'basicConstraints') {
     id = '2.5.29.19';
@@ -134,7 +91,6 @@ function extensionFromParameters(parameters: CertificateExtension): asn1X509.Ext
       })
     );
   } else {
-    if (parameters.name === 'expoProjectInformation') id ??= projectOID;
     assert(parameters.value !== undefined, 'Extension value required');
     value =
       typeof parameters.value === 'string'

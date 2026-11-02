@@ -1,7 +1,37 @@
+import * as asn1X509 from '@peculiar/asn1-x509';
 import assert from 'assert';
-import { md, pki as PKI, random, util } from 'node-forge';
+import * as crypto from 'crypto';
 
-import { toPositiveHex } from './utils';
+import * as asn1 from './asn1';
+import * as x509 from './x509';
+import * as x509Generation from './x509Generation';
+
+export { CodeSigningCertificate } from './x509';
+export type { CertificateSigningRequest } from './x509';
+
+export type RSAKeyPair = { publicKey: crypto.KeyObject; privateKey: crypto.KeyObject };
+
+function requireRSAKey(key: crypto.KeyObject, role: 'public' | 'private'): void {
+  assert(key instanceof crypto.KeyObject && key.type === role, `Expected a ${role} key`);
+  assert(key.asymmetricKeyType === 'rsa', 'Expected an RSA key');
+}
+
+function requireKeyPair(keyPair: RSAKeyPair): void {
+  requireRSAKey(keyPair.publicKey, 'public');
+  requireRSAKey(keyPair.privateKey, 'private');
+}
+
+function normalizeKeyPEM(pem: string): string {
+  return pem
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .join('\n');
+}
+
+const codeSigningExtensions = [
+  { name: 'keyUsage', critical: true, digitalSignature: true },
+  { name: 'extKeyUsage', critical: true, codeSigning: true },
+];
 
 /**
  * Custom X.509 extension that stores information about the Expo project that a code signing certificate is valid for.
@@ -16,8 +46,8 @@ export const expoProjectInformationOID =
  * Generate a public and private RSA key pair.
  * @returns RSA key pair
  */
-export function generateKeyPair(): PKI.rsa.KeyPair {
-  return PKI.rsa.generateKeyPair();
+export function generateKeyPair(): RSAKeyPair {
+  return crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 0x10001 });
 }
 
 /**
@@ -25,13 +55,14 @@ export function generateKeyPair(): PKI.rsa.KeyPair {
  * @param keyPair RSA key pair
  * @returns PEM formatted key pair
  */
-export function convertKeyPairToPEM(keyPair: PKI.rsa.KeyPair): {
+export function convertKeyPairToPEM(keyPair: RSAKeyPair): {
   privateKeyPEM: string;
   publicKeyPEM: string;
 } {
+  requireKeyPair(keyPair);
   return {
-    privateKeyPEM: PKI.privateKeyToPem(keyPair.privateKey),
-    publicKeyPEM: PKI.publicKeyToPem(keyPair.publicKey),
+    privateKeyPEM: keyPair.privateKey.export({ type: 'pkcs1', format: 'pem' }).toString(),
+    publicKeyPEM: keyPair.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
   };
 }
 
@@ -40,8 +71,10 @@ export function convertKeyPairToPEM(keyPair: PKI.rsa.KeyPair): {
  * @param certificate X.509 certificate
  * @returns
  */
-export function convertCertificateToCertificatePEM(certificate: PKI.Certificate): string {
-  return PKI.certificateToPem(certificate);
+export function convertCertificateToCertificatePEM(
+  certificate: x509.CodeSigningCertificate
+): string {
+  return x509.certificateToPEM(certificate);
 }
 
 /**
@@ -55,10 +88,10 @@ export function convertKeyPairPEMToKeyPair({
 }: {
   privateKeyPEM: string;
   publicKeyPEM: string;
-}): PKI.rsa.KeyPair {
+}): RSAKeyPair {
   return {
-    privateKey: PKI.privateKeyFromPem(privateKeyPEM),
-    publicKey: PKI.publicKeyFromPem(publicKeyPEM),
+    privateKey: convertPrivateKeyPEMToPrivateKey(privateKeyPEM),
+    publicKey: convertPublicKeyPEMToPublicKey(publicKeyPEM),
   };
 }
 
@@ -67,8 +100,12 @@ export function convertKeyPairPEMToKeyPair({
  * @param publicKeyPEM PEM formatted public key
  * @returns RSA public key
  */
-export function convertPublicKeyPEMToPublicKey(publicKeyPEM: string): PKI.rsa.PublicKey {
-  return PKI.publicKeyFromPem(publicKeyPEM);
+export function convertPublicKeyPEMToPublicKey(publicKeyPEM: string): crypto.KeyObject {
+  const label = publicKeyPEM.match(/-----BEGIN ([^-]+)-----/)?.[1];
+  assert(label === 'PUBLIC KEY' || label === 'RSA PUBLIC KEY', 'Expected a public key PEM');
+  const key = crypto.createPublicKey(normalizeKeyPEM(publicKeyPEM));
+  requireRSAKey(key, 'public');
+  return key;
 }
 
 /**
@@ -76,8 +113,12 @@ export function convertPublicKeyPEMToPublicKey(publicKeyPEM: string): PKI.rsa.Pu
  * @param privateKeyPEM PEM formatted private key
  * @returns RSA private key
  */
-export function convertPrivateKeyPEMToPrivateKey(privateKeyPEM: string): PKI.rsa.PrivateKey {
-  return PKI.privateKeyFromPem(privateKeyPEM);
+export function convertPrivateKeyPEMToPrivateKey(privateKeyPEM: string): crypto.KeyObject {
+  const label = privateKeyPEM.match(/-----BEGIN ([^-]+)-----/)?.[1];
+  assert(label === 'PRIVATE KEY' || label === 'RSA PRIVATE KEY', 'Expected a private key PEM');
+  const key = crypto.createPrivateKey(normalizeKeyPEM(privateKeyPEM));
+  requireRSAKey(key, 'private');
+  return key;
 }
 
 /**
@@ -85,8 +126,10 @@ export function convertPrivateKeyPEMToPrivateKey(privateKeyPEM: string): PKI.rsa
  * @param certificatePEM PEM formatted X.509 certificate
  * @returns  X.509 Certificate
  */
-export function convertCertificatePEMToCertificate(certificatePEM: string): PKI.Certificate {
-  return PKI.certificateFromPem(certificatePEM, true);
+export function convertCertificatePEMToCertificate(
+  certificatePEM: string
+): x509.CodeSigningCertificate {
+  return x509.parseCertificate(certificatePEM);
 }
 
 /**
@@ -94,8 +137,8 @@ export function convertCertificatePEMToCertificate(certificatePEM: string): PKI.
  * @param csr CSR
  * @returns X.509 CSR
  */
-export function convertCSRToCSRPEM(csr: PKI.CertificateSigningRequest): string {
-  return PKI.certificationRequestToPem(csr);
+export function convertCSRToCSRPEM(csr: x509.CertificateSigningRequest): string {
+  return x509.csrToPEM(csr);
 }
 
 /**
@@ -103,15 +146,15 @@ export function convertCSRToCSRPEM(csr: PKI.CertificateSigningRequest): string {
  * @param CSRPEM PEM-formatted X.509 CSR
  * @returns CSR
  */
-export function convertCSRPEMToCSR(CSRPEM: string): PKI.CertificateSigningRequest {
-  return PKI.certificationRequestFromPem(CSRPEM, true);
+export function convertCSRPEMToCSR(CSRPEM: string): x509.CertificateSigningRequest {
+  return x509.parseCSR(CSRPEM);
 }
 
 type GenerateParameters = {
   /**
    * Public/private key pair generated via {@link generateKeyPair}.
    */
-  keyPair: PKI.rsa.KeyPair;
+  keyPair: RSAKeyPair;
 
   /**
    * Certificate validity range start.
@@ -133,68 +176,35 @@ type GenerateParameters = {
 /**
  * Generate a self-signed (root) code-signing certificate valid for use with expo-updates.
  *
- * @returns PKI.Certificate valid for expo-updates code signing
+ * @returns CodeSigningCertificate valid for expo-updates code signing
  */
 export function generateSelfSignedCodeSigningCertificate({
   keyPair: { publicKey, privateKey },
   validityNotBefore,
   validityNotAfter,
   commonName,
-}: GenerateParameters): PKI.Certificate {
-  const cert = PKI.createCertificate();
-  cert.publicKey = publicKey;
-  cert.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
+}: GenerateParameters): x509.CodeSigningCertificate {
+  requireKeyPair({ publicKey, privateKey });
   assert(
     validityNotAfter > validityNotBefore,
     'validityNotAfter must be later than validityNotBefore'
   );
-  cert.validity.notBefore = validityNotBefore;
-  cert.validity.notAfter = validityNotAfter;
-
-  const attrs = [
-    {
-      name: 'commonName',
-      value: commonName,
-    },
-  ];
-  cert.setSubject(attrs);
-  cert.setIssuer(attrs);
-
-  cert.setExtensions([
-    {
-      name: 'keyUsage',
-      critical: true,
-      keyCertSign: false,
-      digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
-    },
-    {
-      name: 'extKeyUsage',
-      critical: true,
-      serverAuth: false,
-      clientAuth: false,
-      codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
-    },
-  ]);
-
-  cert.sign(privateKey, md.sha256.create());
-  return cert;
+  const name = [{ name: 'commonName', value: commonName }];
+  return x509Generation.createCertificate({
+    publicKey,
+    signingKey: privateKey,
+    subject: name,
+    issuer: name,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions: codeSigningExtensions,
+  });
 }
 
-function arePublicKeysEqual(key1: PKI.rsa.PublicKey, key2: PKI.rsa.PublicKey): boolean {
-  return key1.n.equals(key2.n) && key1.e.equals(key2.e);
-}
-
-function doPrivateAndPublicKeysMatch(
-  privateKey: PKI.rsa.PrivateKey,
-  publicKey: PKI.rsa.PublicKey
-): boolean {
-  return publicKey.n.equals(privateKey.n) && publicKey.e.equals(privateKey.e);
+function arePublicKeysEqual(key1: crypto.KeyObject, key2: crypto.KeyObject): boolean {
+  return key1
+    .export({ type: 'spki', format: 'der' })
+    .equals(key2.export({ type: 'spki', format: 'der' }));
 }
 
 /**
@@ -203,10 +213,10 @@ function doPrivateAndPublicKeysMatch(
  * @param keyPair RSA key pair
  */
 export function validateSelfSignedCertificate(
-  certificate: PKI.Certificate,
-  keyPair: PKI.rsa.KeyPair
+  certificate: x509.CodeSigningCertificate,
+  keyPair: RSAKeyPair
 ): void {
-  if (certificate.issuer.hash !== certificate.subject.hash) {
+  if (!x509.isCertificateSelfIssued(certificate)) {
     throw new Error(
       'Certificate issuer hash does not match subject hash, indicating certificate is not self-signed.'
     );
@@ -217,29 +227,25 @@ export function validateSelfSignedCertificate(
     throw new Error('Certificate validity expired');
   }
 
-  const keyUsage = certificate.getExtension('keyUsage');
-  const digitalSignature = (keyUsage as any).digitalSignature;
-  if (!keyUsage || !digitalSignature) {
+  if (!x509.hasKeyUsage(certificate, asn1X509.KeyUsageFlags.digitalSignature)) {
     throw new Error('X509v3 Key Usage: Digital Signature not present');
   }
-
-  const extKeyUsage = certificate.getExtension('extKeyUsage');
-  const codeSigning = (extKeyUsage as any).codeSigning;
-  if (!extKeyUsage || !codeSigning) {
+  if (!x509.hasExtendedKeyUsage(certificate, asn1X509.id_kp_codeSigning)) {
     throw new Error('X509v3 Extended Key Usage: Code Signing not present');
   }
-
-  const isValid = certificate.verify(certificate);
+  const isValid = x509.verifyCertificateSelfSignature(certificate);
   if (!isValid) {
     throw new Error('Certificate signature not valid');
   }
 
-  const certificatePublicKey = certificate.publicKey as PKI.rsa.PublicKey;
+  requireKeyPair(keyPair);
+  requireRSAKey(certificate.publicKey, 'public');
+  const certificatePublicKey = certificate.publicKey;
   if (!arePublicKeysEqual(certificatePublicKey, keyPair.publicKey)) {
     throw new Error('Certificate pubic key does not match key pair public key');
   }
 
-  if (!doPrivateAndPublicKeysMatch(keyPair.privateKey, keyPair.publicKey)) {
+  if (!arePublicKeysEqual(crypto.createPublicKey(keyPair.privateKey), keyPair.publicKey)) {
     throw new Error('keyPair key mismatch');
   }
 }
@@ -256,14 +262,23 @@ export function validateSelfSignedCertificate(
  * @returns base64-encoded RSA signature
  */
 export function signBufferRSASHA256AndVerify(
-  privateKey: PKI.rsa.PrivateKey,
-  certificate: PKI.Certificate,
+  privateKey: crypto.KeyObject,
+  certificate: x509.CodeSigningCertificate,
   bufferToSign: Buffer
 ): string {
-  const digest = md.sha256.create().update(bufferToSign.toString('binary'));
-  const digestSignature = privateKey.sign(digest);
-  const isValidSignature = (certificate.publicKey as PKI.rsa.PublicKey).verify(
-    digest.digest().getBytes(),
+  requireRSAKey(privateKey, 'private');
+  requireRSAKey(certificate.publicKey, 'public');
+  const digestSignature = crypto.sign('sha256', bufferToSign, {
+    key: privateKey,
+    padding: crypto.constants.RSA_PKCS1_PADDING,
+  });
+  const isValidSignature = crypto.verify(
+    'sha256',
+    bufferToSign,
+    {
+      key: certificate.publicKey,
+      padding: crypto.constants.RSA_PKCS1_PADDING,
+    },
     digestSignature
   );
 
@@ -271,7 +286,7 @@ export function signBufferRSASHA256AndVerify(
     throw new Error('Signature generated with private key not valid for certificate');
   }
 
-  return util.encode64(digestSignature);
+  return digestSignature.toString('base64');
 }
 
 /**
@@ -281,20 +296,11 @@ export function signBufferRSASHA256AndVerify(
  * @returns CSR
  */
 export function generateCSR(
-  keyPair: PKI.rsa.KeyPair,
+  keyPair: RSAKeyPair,
   commonName: string
-): PKI.CertificateSigningRequest {
-  const csr = PKI.createCertificationRequest();
-  csr.publicKey = keyPair.publicKey;
-  const attrs = [
-    {
-      name: 'commonName',
-      value: commonName,
-    },
-  ];
-  csr.setSubject(attrs);
-  csr.sign(keyPair.privateKey, md.sha256.create());
-  return csr;
+): x509.CertificateSigningRequest {
+  requireKeyPair(keyPair);
+  return x509Generation.createCSR(keyPair, commonName);
 }
 
 /**
@@ -313,57 +319,33 @@ export function generateCSR(
  * @returns certificate to use to sign development manifests
  */
 export function generateDevelopmentCertificateFromCSR(
-  issuerPrivateKey: PKI.rsa.PrivateKey,
-  issuerCertificate: PKI.Certificate,
-  csr: PKI.CertificateSigningRequest,
+  issuerPrivateKey: crypto.KeyObject,
+  issuerCertificate: x509.CodeSigningCertificate,
+  csr: x509.CertificateSigningRequest,
   appId: string,
   scopeKey: string
-): PKI.Certificate {
-  assert(csr.verify(), 'CSR not self-signed');
-  assert(csr.publicKey, 'CSR must have a public key');
+): x509.CodeSigningCertificate {
+  assert(x509.verifyCSR(csr), 'CSR not self-signed');
+  const request = x509.getCSRData(csr).parsed.certificationRequestInfo;
+  const publicKey = asn1.publicKeyFromSPKI(request.subjectPKInfo);
+  requireRSAKey(issuerPrivateKey, 'private');
 
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = csr.publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
+  // Preserve the existing local calendar arithmetic, including month overflow.
+  const notBefore = new Date();
+  notBefore.setDate(notBefore.getDate() - 1);
+  const notAfter = new Date();
+  notAfter.setDate(notBefore.getDate() + 30);
 
-  // set certificate subject attrs from CSR
-  certificate.setSubject(csr.subject.attributes);
-
-  // 30 day validity into the future, 1 day in the past just in case of clock skew at callsite
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notBefore.setDate(certificate.validity.notBefore.getDate() - 1);
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setDate(certificate.validity.notBefore.getDate() + 30);
-
-  certificate.setIssuer(issuerCertificate.subject.attributes);
-
-  certificate.setExtensions([
-    {
-      name: 'keyUsage',
-      critical: true,
-      keyCertSign: false,
-      digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
-    },
-    {
-      name: 'extKeyUsage',
-      critical: true,
-      serverAuth: false,
-      clientAuth: false,
-      codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
-    },
-    {
-      name: 'expoProjectInformation',
-      id: expoProjectInformationOID,
-      // critical: true, // can't be critical since openssl verify doesn't know about this extension
-      value: `${appId},${scopeKey}`,
-    },
-  ]);
-
-  certificate.sign(issuerPrivateKey, md.sha256.create());
-  return certificate;
+  return x509Generation.createCertificate({
+    publicKey,
+    signingKey: issuerPrivateKey,
+    subject: request.subject,
+    issuer: x509.getCertificateData(issuerCertificate).parsed.tbsCertificate.subject,
+    notBefore,
+    notAfter,
+    extensions: [
+      ...codeSigningExtensions,
+      { id: expoProjectInformationOID, value: `${appId},${scopeKey}` },
+    ],
+  });
 }

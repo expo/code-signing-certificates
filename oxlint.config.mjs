@@ -53,7 +53,7 @@ export default defineConfig({
       },
     },
     {
-      files: ['*.config.js', 'jest.setup.js'],
+      files: ['*.config.js'],
       env: { node: true },
     },
   ],

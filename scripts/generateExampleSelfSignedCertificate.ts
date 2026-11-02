@@ -5,14 +5,19 @@
  */
 
 import fs from 'fs/promises';
-import { pki as PKI, pki } from 'node-forge';
+import type { KeyObject } from 'node:crypto';
 
-import { generateKeyPair, generateSelfSignedCodeSigningCertificate } from '../src/main';
+import {
+  convertCertificateToCertificatePEM,
+  generateKeyPair,
+  generateSelfSignedCodeSigningCertificate,
+} from '../src/main';
+import type { CodeSigningCertificate } from '../src/x509';
 
 type KeysAndCertificate = {
-  publicKey: pki.rsa.PublicKey;
-  privateKey: pki.rsa.PrivateKey;
-  certificate: pki.Certificate;
+  publicKey: KeyObject;
+  privateKey: KeyObject;
+  certificate: CodeSigningCertificate;
 };
 
 export async function run(): Promise<void> {
@@ -34,9 +39,15 @@ async function exportCertificateAndKeysAsync(
   prefix: string
 ): Promise<void> {
   await Promise.all([
-    fs.writeFile(`keys/${prefix}-public-key.pem`, PKI.publicKeyToPem(publicKey)),
-    fs.writeFile(`keys/${prefix}-private-key.pem`, PKI.privateKeyToPem(privateKey)),
-    fs.writeFile(`keys/${prefix}-certificate.pem`, PKI.certificateToPem(certificate)),
+    fs.writeFile(
+      `keys/${prefix}-public-key.pem`,
+      publicKey.export({ type: 'spki', format: 'pem' })
+    ),
+    fs.writeFile(
+      `keys/${prefix}-private-key.pem`,
+      privateKey.export({ type: 'pkcs1', format: 'pem' })
+    ),
+    fs.writeFile(`keys/${prefix}-certificate.pem`, convertCertificateToCertificatePEM(certificate)),
   ]);
 }
 

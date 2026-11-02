@@ -5,9 +5,10 @@
  * code signing test suite in the expo-updates package (both iOS and Android).
  */
 
-import assert from 'assert';
+import * as pem from '@peculiar/utils/pem';
 import fs from 'fs/promises';
-import { pki as PKI, util, random, md, pki } from 'node-forge';
+import type { KeyObject } from 'node:crypto';
+import { sign } from 'node:crypto';
 
 import {
   convertCertificateToCertificatePEM,
@@ -15,25 +16,34 @@ import {
   generateCSR,
   generateKeyPair,
 } from '../src/main';
-import { toPositiveHex } from '../src/utils';
+import {
+  type CodeSigningCertificate,
+  type CertificateSigningRequest,
+  getCertificateData,
+  getCSRData,
+} from '../src/x509';
+import { createCertificate, type CertificateExtension } from '../src/x509Generation';
 
 type KeysAndCertificate = {
-  publicKey: pki.rsa.PublicKey;
-  privateKey: pki.rsa.PrivateKey;
-  certificate: pki.Certificate;
+  publicKey: KeyObject;
+  privateKey: KeyObject;
+  certificate: CodeSigningCertificate;
 };
 
 type KeysAndCSR = {
-  publicKey: pki.rsa.PublicKey;
-  privateKey: pki.rsa.PrivateKey;
-  csr: pki.CertificateSigningRequest;
+  publicKey: KeyObject;
+  privateKey: KeyObject;
+  csr: CertificateSigningRequest;
 };
 
 const testAppId = '285dc9ca-a25d-4f60-93be-36dc312266d7';
 const testScopeKey = '@test/app';
 
-function replaceCharAt(str: string, index: number, replacement: string): string {
-  return str.substring(0, index) + replacement + str.substring(index + replacement.length);
+function withInvalidSignature(certificate: CodeSigningCertificate): string {
+  const { der } = getCertificateData(certificate);
+  // The final DER byte is part of the signature, so the certificate stays parseable.
+  der[der.length - 1] = der[der.length - 1]! ^ 1;
+  return pem.encode('CERTIFICATE', der);
 }
 
 export async function run(): Promise<void> {
@@ -48,8 +58,9 @@ export async function run(): Promise<void> {
 
   // self-signed validity expired
   const validityExpired = await generateSelfSigned(
-    () => {
-      // no-op to set not after to be in the past
+    (validityNotBefore, validityNotAfter) => {
+      validityNotBefore.setDate(validityNotBefore.getDate() - 2);
+      validityNotAfter.setDate(validityNotAfter.getDate() - 1);
     },
     (extensions) => extensions
   );
@@ -73,14 +84,11 @@ export async function run(): Promise<void> {
   );
   await exportCertificateAndKeysAsync(noCodeSigningExtendedUsage, 'noCodeSigningExtendedUsage');
 
-  // self-signed signature invalid (manually modified random character towards the end)
-  const signatureInvalidPEMInitial = convertCertificateToCertificatePEM(test.certificate);
-  const signatureInvalidPEM = replaceCharAt(
-    signatureInvalidPEMInitial,
-    signatureInvalidPEMInitial.length - 41,
-    'a'
+  // self-signed signature invalid
+  await fs.writeFile(
+    `generated-test-data/signatureInvalid.pem`,
+    withInvalidSignature(test.certificate)
   );
-  await fs.writeFile(`generated-test-data/signatureInvalid.pem`, signatureInvalidPEM);
 
   // normal chain
   const chainRoot = await generateExpoRootCertificateAsync((extensions) => extensions);
@@ -95,17 +103,9 @@ export async function run(): Promise<void> {
   await exportCertificateAndKeysAsync(chainLeaf, 'chainLeaf');
 
   // invalid signature chain leaf certificate
-  const invalidSignatureChainLeafPEMInitial = convertCertificateToCertificatePEM(
-    chainLeaf.certificate
-  );
-  const invalidSignatureChainLeafPEM = replaceCharAt(
-    invalidSignatureChainLeafPEMInitial,
-    invalidSignatureChainLeafPEMInitial.length - 41,
-    'a'
-  );
   await fs.writeFile(
     `generated-test-data/invalidSignatureChainLeaf.pem`,
-    invalidSignatureChainLeafPEM
+    withInvalidSignature(chainLeaf.certificate)
   );
 
   // not CA intermediate chain
@@ -187,30 +187,29 @@ export async function run(): Promise<void> {
   const testNewManifestBody =
     '{"id":"0754dad0-d200-d634-113c-ef1f26106028","createdAt":"2021-11-23T00:57:14.437Z","runtimeVersion":"1","assets":[{"hash":"cb65fafb5ed456fc3ed8a726cf4087d37b875184eba96f33f6d99104e6e2266d","key":"489ea2f19fa850b65653ab445637a181.jpg","contentType":"image/jpeg","url":"http://192.168.64.1:3000/api/assets?asset=updates/1/assets/489ea2f19fa850b65653ab445637a181&runtimeVersion=1&platform=android","fileExtension":".jpg"}],"launchAsset":{"hash":"323ddd1968ee76d4ddbb16b04fb2c3f1b6d1ab9b637d819699fecd6fa0ffb1a8","key":"696a70cf7035664c20ea86f67dae822b.bundle","contentType":"application/javascript","url":"http://192.168.64.1:3000/api/assets?asset=updates/1/bundles/android-696a70cf7035664c20ea86f67dae822b.js&runtimeVersion=1&platform=android","fileExtension":".bundle"},"extra":{"scopeKey":"@test/app","eas":{"projectId":"285dc9ca-a25d-4f60-93be-36dc312266d7"}}}';
 
-  const testDigest = md.sha256.create().update(testNewManifestBody);
-  const testDigestSignature = test.privateKey.sign(testDigest);
-  console.log(`testNewManifestBodySignature = "sig=\\"${util.encode64(testDigestSignature)}\\""`);
-
-  const chainLeafDigest = md.sha256.create().update(testNewManifestBody);
-  const chainLeafDigestSignature = chainLeaf.privateKey.sign(chainLeafDigest);
+  const testDigestSignature = sign('RSA-SHA256', Buffer.from(testNewManifestBody), test.privateKey);
   console.log(
-    `testNewManifestBodyValidChainLeafSignature = "sig=\\"${util.encode64(
-      chainLeafDigestSignature
-    )}\\""`
+    `testNewManifestBodySignature = "sig=\\"${testDigestSignature.toString('base64')}\\""`
+  );
+
+  const chainLeafDigestSignature = sign(
+    'RSA-SHA256',
+    Buffer.from(testNewManifestBody),
+    chainLeaf.privateKey
+  );
+  console.log(
+    `testNewManifestBodyValidChainLeafSignature = "sig=\\"${chainLeafDigestSignature.toString('base64')}\\""`
   );
 
   const testNewManifestBodyIncorrectProjectId =
     '{"id":"0754dad0-d200-d634-113c-ef1f26106028","createdAt":"2021-11-23T00:57:14.437Z","runtimeVersion":"1","assets":[{"hash":"cb65fafb5ed456fc3ed8a726cf4087d37b875184eba96f33f6d99104e6e2266d","key":"489ea2f19fa850b65653ab445637a181.jpg","contentType":"image/jpeg","url":"http://192.168.64.1:3000/api/assets?asset=updates/1/assets/489ea2f19fa850b65653ab445637a181&runtimeVersion=1&platform=android","fileExtension":".jpg"}],"launchAsset":{"hash":"323ddd1968ee76d4ddbb16b04fb2c3f1b6d1ab9b637d819699fecd6fa0ffb1a8","key":"696a70cf7035664c20ea86f67dae822b.bundle","contentType":"application/javascript","url":"http://192.168.64.1:3000/api/assets?asset=updates/1/bundles/android-696a70cf7035664c20ea86f67dae822b.js&runtimeVersion=1&platform=android","fileExtension":".bundle"},"extra":{"scopeKey":"@test/app","eas":{"projectId":"485dc9ca-a25d-4f60-93be-36dc312266d8"}}}';
-  const chainLeafIncorrectProjectIdDigest = md.sha256
-    .create()
-    .update(testNewManifestBodyIncorrectProjectId);
-  const chainLeafIncorrectProjectIdDigestSignature = chainLeaf.privateKey.sign(
-    chainLeafIncorrectProjectIdDigest
+  const chainLeafIncorrectProjectIdDigestSignature = sign(
+    'RSA-SHA256',
+    Buffer.from(testNewManifestBodyIncorrectProjectId),
+    chainLeaf.privateKey
   );
   console.log(
-    `testNewManifestBodyValidChainLeafSignatureIncorrectProjectId = "sig=\\"${util.encode64(
-      chainLeafIncorrectProjectIdDigestSignature
-    )}\\""`
+    `testNewManifestBodyValidChainLeafSignatureIncorrectProjectId = "sig=\\"${chainLeafIncorrectProjectIdDigestSignature.toString('base64')}\\""`
   );
 }
 
@@ -221,26 +220,23 @@ async function exportCertificateAndKeysAsync(
   await Promise.all([
     fs.writeFile(
       `generated-test-data/privatekeys/${testCase}-privateKey.pem`,
-      PKI.privateKeyToPem(privateKey)
+      privateKey.export({ type: 'pkcs1', format: 'pem' })
     ),
-    fs.writeFile(`generated-test-data/${testCase}.pem`, PKI.certificateToPem(certificate)),
+    fs.writeFile(
+      `generated-test-data/${testCase}.pem`,
+      convertCertificateToCertificatePEM(certificate)
+    ),
   ]);
 }
 
 async function generateSelfSigned(
   validityBlock: (notBefore: Date, notAfter: Date) => void,
-  extensionsModifierBlock: (extensions: any[]) => any[]
+  extensionsModifierBlock: (extensions: CertificateExtension[]) => CertificateExtension[]
 ): Promise<KeysAndCertificate> {
   const keyPair = generateKeyPair();
   const validityNotBefore = new Date();
   const validityNotAfter = new Date();
   validityBlock(validityNotBefore, validityNotAfter);
-
-  const cert = PKI.createCertificate();
-  cert.publicKey = keyPair.publicKey;
-  cert.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-  cert.validity.notBefore = validityNotBefore;
-  cert.validity.notAfter = validityNotAfter;
 
   const attrs = [
     {
@@ -248,33 +244,30 @@ async function generateSelfSigned(
       value: 'test',
     },
   ];
-  cert.setSubject(attrs);
-  cert.setIssuer(attrs);
 
-  cert.setExtensions(
-    extensionsModifierBlock([
-      {
-        name: 'keyUsage',
-        critical: true,
-        keyCertSign: false,
-        digitalSignature: true,
-        nonRepudiation: false,
-        keyEncipherment: false,
-        dataEncipherment: false,
-      },
-      {
-        name: 'extKeyUsage',
-        critical: true,
-        serverAuth: false,
-        clientAuth: false,
-        codeSigning: true,
-        emailProtection: false,
-        timeStamping: false,
-      },
-    ])
-  );
+  const extensions: CertificateExtension[] = extensionsModifierBlock([
+    {
+      name: 'keyUsage',
+      critical: true,
+      keyCertSign: false,
+      digitalSignature: true,
+    },
+    {
+      name: 'extKeyUsage',
+      critical: true,
+      codeSigning: true,
+    },
+  ]);
 
-  cert.sign(keyPair.privateKey, md.sha256.create());
+  const cert = createCertificate({
+    publicKey: keyPair.publicKey,
+    signingKey: keyPair.privateKey,
+    subject: attrs,
+    issuer: attrs,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     ...keyPair,
@@ -283,18 +276,14 @@ async function generateSelfSigned(
 }
 
 async function generateExpoRootCertificateAsync(
-  extensionsModifierBlock: (extensions: any[]) => any[]
+  extensionsModifierBlock: (extensions: CertificateExtension[]) => CertificateExtension[]
 ): Promise<KeysAndCertificate> {
   const { privateKey, publicKey } = generateKeyPair();
 
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
   // 100 year validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setFullYear(certificate.validity.notBefore.getFullYear() + 100);
+  const validityNotBefore = new Date();
+  const validityNotAfter = new Date();
+  validityNotAfter.setFullYear(validityNotBefore.getFullYear() + 100);
 
   const attrs = [
     {
@@ -323,30 +312,29 @@ async function generateExpoRootCertificateAsync(
     },
   ];
 
-  // root certificate is self-signed
-  certificate.setSubject(attrs);
-  certificate.setIssuer(attrs);
+  const extensions: CertificateExtension[] = extensionsModifierBlock([
+    {
+      name: 'basicConstraints',
+      cA: true,
+    },
+    {
+      name: 'keyUsage',
+      critical: true,
+      keyCertSign: true,
+      cRLSign: true,
+      digitalSignature: false,
+    },
+  ]);
 
-  certificate.setExtensions(
-    extensionsModifierBlock([
-      {
-        name: 'basicConstraints',
-        cA: true,
-      },
-      {
-        name: 'keyUsage',
-        critical: true,
-        keyCertSign: true,
-        cRLSign: true,
-        digitalSignature: false,
-        nonRepudiation: false,
-        keyEncipherment: false,
-        dataEncipherment: false,
-      },
-    ])
-  );
-
-  certificate.sign(privateKey, md.sha256.create());
+  const certificate = createCertificate({
+    publicKey,
+    signingKey: privateKey,
+    subject: attrs,
+    issuer: attrs,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     privateKey,
@@ -357,18 +345,14 @@ async function generateExpoRootCertificateAsync(
 
 async function generateExpoGoIntermediateCertificate(
   rootKeysAndCert: KeysAndCertificate,
-  extensionsModifierBlock: (extensions: any[]) => any[]
+  extensionsModifierBlock: (extensions: CertificateExtension[]) => CertificateExtension[]
 ): Promise<KeysAndCertificate> {
   const { privateKey, publicKey } = generateKeyPair();
 
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
   // 100 year validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setFullYear(certificate.validity.notBefore.getFullYear() + 100);
+  const validityNotBefore = new Date();
+  const validityNotAfter = new Date();
+  validityNotAfter.setFullYear(validityNotBefore.getFullYear() + 100);
 
   const attrs = [
     {
@@ -397,41 +381,36 @@ async function generateExpoGoIntermediateCertificate(
     },
   ];
 
-  certificate.setSubject(attrs);
+  const extensions: CertificateExtension[] = extensionsModifierBlock([
+    {
+      name: 'basicConstraints',
+      critical: true,
+      cA: true,
+      pathLenConstraint: 0, // no subsequent intermediate certificates allowed
+    },
+    {
+      name: 'keyUsage',
+      critical: true,
+      keyCertSign: true,
+      cRLSign: true,
+      digitalSignature: true,
+    },
+    {
+      name: 'extKeyUsage',
+      critical: true,
+      codeSigning: true,
+    },
+  ]);
 
-  certificate.setIssuer(rootKeysAndCert.certificate.subject.attributes);
-
-  certificate.setExtensions(
-    extensionsModifierBlock([
-      {
-        name: 'basicConstraints',
-        critical: true,
-        cA: true,
-        pathLenConstraint: 0, // no subsequent intermediate certificates allowed
-      },
-      {
-        name: 'keyUsage',
-        critical: true,
-        keyCertSign: true,
-        cRLSign: true,
-        digitalSignature: true,
-        nonRepudiation: false,
-        keyEncipherment: false,
-        dataEncipherment: false,
-      },
-      {
-        name: 'extKeyUsage',
-        critical: true,
-        serverAuth: false,
-        clientAuth: false,
-        codeSigning: true,
-        emailProtection: false,
-        timeStamping: false,
-      },
-    ])
-  );
-
-  certificate.sign(rootKeysAndCert.privateKey, md.sha256.create());
+  const certificate = createCertificate({
+    publicKey,
+    signingKey: rootKeysAndCert.privateKey,
+    subject: attrs,
+    issuer: getCertificateData(rootKeysAndCert.certificate).parsed.tbsCertificate.subject,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     privateKey,
@@ -457,40 +436,22 @@ async function generateTestDevelopmentCertificate(
   const issuerCertificate = intermediate.certificate;
   const issuerPrivateKey = intermediate.privateKey;
 
-  assert(csr.publicKey, 'CSR must have a public key');
-
-  const certificate = PKI.createCertificate();
-  certificate.publicKey = csr.publicKey;
-  certificate.serialNumber = toPositiveHex(util.bytesToHex(random.getBytesSync(9)));
-
-  // set certificate subject attrs from CSR
-  certificate.setSubject(csr.subject.attributes);
-
   // 100 year validity
-  certificate.validity.notBefore = new Date();
-  certificate.validity.notAfter = new Date();
-  certificate.validity.notAfter.setFullYear(certificate.validity.notBefore.getFullYear() + 100);
+  const validityNotBefore = new Date();
+  const validityNotAfter = new Date();
+  validityNotAfter.setFullYear(validityNotBefore.getFullYear() + 100);
 
-  certificate.setIssuer(issuerCertificate.subject.attributes);
-
-  certificate.setExtensions([
+  const extensions: CertificateExtension[] = [
     {
       name: 'keyUsage',
       critical: true,
       keyCertSign: false,
       digitalSignature: true,
-      nonRepudiation: false,
-      keyEncipherment: false,
-      dataEncipherment: false,
     },
     {
       name: 'extKeyUsage',
       critical: true,
-      serverAuth: false,
-      clientAuth: false,
       codeSigning: true,
-      emailProtection: false,
-      timeStamping: false,
     },
     {
       name: 'expoProjectInformation',
@@ -498,9 +459,17 @@ async function generateTestDevelopmentCertificate(
       // critical: true, // can't be critical since openssl verify doesn't know about this extension
       value: `${testAppId},${testScopeKey}`,
     },
-  ]);
+  ];
 
-  certificate.sign(issuerPrivateKey, md.sha256.create());
+  const certificate = createCertificate({
+    publicKey: csrKeysAndCSR.publicKey,
+    signingKey: issuerPrivateKey,
+    subject: getCSRData(csr).parsed.certificationRequestInfo.subject,
+    issuer: getCertificateData(issuerCertificate).parsed.tbsCertificate.subject,
+    notBefore: validityNotBefore,
+    notAfter: validityNotAfter,
+    extensions,
+  });
 
   return {
     privateKey: csrKeysAndCSR.privateKey,

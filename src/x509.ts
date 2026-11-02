@@ -21,8 +21,15 @@ const requests = new WeakMap<CertificateSigningRequest, CSRData>();
 const certificateDER = Symbol.for('@expo/code-signing-certificates/certificate/der/v1');
 const csrDER = Symbol.for('@expo/code-signing-certificates/csr/der/v1');
 
+function certificateDate(date: Date): Date {
+  const parsed = new Date(date);
+  assert(Number.isFinite(parsed.getTime()), 'Invalid certificate date');
+  return parsed;
+}
+
 export class CodeSigningCertificate {
   readonly #data: CertificateData;
+  readonly #validity: { notBefore: Date; notAfter: Date };
 
   constructor(pemOrDER: string | Uint8Array) {
     const der =
@@ -39,6 +46,10 @@ export class CodeSigningCertificate {
     assert(native.publicKey.asymmetricKeyType === 'rsa', 'Expected RSA public key');
     if (!native.raw.equals(der))
       throw new Error('Certificate encoding does not match native representation');
+    this.#validity = {
+      notBefore: certificateDate(native.validFromDate),
+      notAfter: certificateDate(native.validToDate),
+    };
     const seen = new Set<string>();
     for (const extension of parsed.tbsCertificate.extensions ?? []) {
       if (seen.has(extension.extnID)) throw new Error('Duplicate certificate extension');
@@ -63,8 +74,8 @@ export class CodeSigningCertificate {
 
   get validity(): { notBefore: Date; notAfter: Date } {
     return {
-      notBefore: new Date(this.#data.native.validFromDate),
-      notAfter: new Date(this.#data.native.validToDate),
+      notBefore: new Date(this.#validity.notBefore),
+      notAfter: new Date(this.#validity.notAfter),
     };
   }
 }

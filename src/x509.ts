@@ -21,8 +21,15 @@ const requests = new WeakMap<CertificateSigningRequest, CSRData>();
 const certificateDER = Symbol.for('@expo/code-signing-certificates/certificate/der/v1');
 const csrDER = Symbol.for('@expo/code-signing-certificates/csr/der/v1');
 
-function certificateDate(date: Date): Date {
-  const parsed = new Date(date);
+function certificateDate(date: Date | undefined, text: string): Date {
+  const parsed = new Date(date ?? text);
+  if (!date) {
+    // Node <22.10 has only text getters; preserve OpenSSL's literal year and whole seconds.
+    const year = Number(text.trim().split(/\s+/).at(-2));
+    assert(Number.isInteger(year), 'Invalid certificate date');
+    parsed.setUTCFullYear(year);
+    parsed.setUTCMilliseconds(0);
+  }
   assert(Number.isFinite(parsed.getTime()), 'Invalid certificate date');
   return parsed;
 }
@@ -47,8 +54,8 @@ export class CodeSigningCertificate {
     if (!native.raw.equals(der))
       throw new Error('Certificate encoding does not match native representation');
     this.#validity = {
-      notBefore: certificateDate(native.validFromDate),
-      notAfter: certificateDate(native.validToDate),
+      notBefore: certificateDate(native.validFromDate, native.validFrom),
+      notAfter: certificateDate(native.validToDate, native.validTo),
     };
     const seen = new Set<string>();
     for (const extension of parsed.tbsCertificate.extensions ?? []) {

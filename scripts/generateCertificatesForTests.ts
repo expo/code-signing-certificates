@@ -40,7 +40,7 @@ const testAppId = '285dc9ca-a25d-4f60-93be-36dc312266d7';
 const testScopeKey = '@test/app';
 
 function withInvalidSignature(certificate: CodeSigningCertificate): string {
-  const der = Buffer.from(getCertificateData(certificate).der);
+  const { der } = getCertificateData(certificate);
   // The final DER byte is part of the signature, so the certificate stays parseable.
   der[der.length - 1] = der[der.length - 1]! ^ 1;
   return pem.encode('CERTIFICATE', der);

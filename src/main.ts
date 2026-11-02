@@ -1,8 +1,8 @@
-import * as asn1Schema from '@peculiar/asn1-schema';
 import * as asn1X509 from '@peculiar/asn1-x509';
 import assert from 'assert';
 import * as crypto from 'crypto';
 
+import * as asn1 from './asn1';
 import * as x509 from './x509';
 import * as x509Generation from './x509Generation';
 
@@ -327,12 +327,7 @@ export function generateDevelopmentCertificateFromCSR(
 ): x509.CodeSigningCertificate {
   assert(x509.verifyCSR(csr), 'CSR not self-signed');
   const request = x509.getCSRData(csr).parsed.certificationRequestInfo;
-  const publicKey = crypto.createPublicKey({
-    key: Buffer.from(asn1Schema.AsnSerializer.serialize(request.subjectPKInfo)),
-    format: 'der',
-    type: 'spki',
-  });
-  requireRSAKey(publicKey, 'public');
+  const publicKey = asn1.publicKeyFromSPKI(request.subjectPKInfo);
   requireRSAKey(issuerPrivateKey, 'private');
 
   // Preserve the existing local calendar arithmetic, including month overflow.
